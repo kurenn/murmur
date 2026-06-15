@@ -1,0 +1,59 @@
+/* native.css — strip web-app affordances so the shell reads like a real Mac app.
+ * Loaded after tokens.css in every window. Text selection and the I-beam cursor
+ * are off on chrome (labels, nav, stats); inputs and anything tagged
+ * [data-selectable] (transcripts the user may want to copy) stay selectable.
+ */
+
+html,
+body {
+  overscroll-behavior: none; /* no rubber-band bounce on the shell */
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+/* Native apps don't let you marquee-select UI text — but keep transcripts and
+ * form fields selectable/copyable. */
+input,
+textarea,
+[contenteditable="true"],
+[data-selectable],
+[data-selectable] * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+input,
+textarea {
+  cursor: text;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* No webview tap-highlight or image-drag ghosting. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+img,
+a {
+  -webkit-user-drag: none;
+}
+
+/* Focus ring only for keyboard users (macOS behaviour), not on mouse clicks. */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Subtle native pressed feedback (dim, not scale — avoids layout shift). */
+button {
+  transition: opacity 0.08s ease;
+}
+button:active {
+  opacity: 0.78;
+}

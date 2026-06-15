@@ -1,0 +1,47 @@
+[package]
+name = "murmur"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "murmur_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dev-dependencies]
+# WAV reader for the whisper_smoke example only.
+hound = "3"
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
+# Real OS desktop blur behind the overlay (macOS NSVisualEffectView / Win Acrylic).
+window-vibrancy = "0.6"
+tauri-plugin-opener = "2"
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cpal = "0.16"
+# Local Whisper transcription (whisper.cpp). CPU build for now; enable per-platform
+# GPU backends in CI for release (macOS: features= ["metal", "coreml"]).
+whisper-rs = "0.16"
+# Streaming model downloads from the HF mirror + multipart upload to a remote
+# Whisper server (OpenAI-compatible /v1/audio/transcriptions).
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "multipart", "rustls-tls"] }
+futures-util = "0.3"
+# Text injection: clipboard + synthetic paste/typing.
+enigo = "0.6"
+arboard = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# Accessibility (AXIsProcessTrusted) check + prompt — required for synthetic input.
+macos-accessibility-client = "0.0.2"
+

@@ -1,0 +1,111 @@
+/* keyframes.css — animation primitives, ported verbatim from design/index.html.
+ * Names are load-bearing: components reference these by string.
+ *   mm-wf / mm-wf-idle  waveform bars
+ *   mm-dot              thinking dots (staggered 0.16s)
+ *   mm-ring             pulse rings (live dot)
+ *   mm-caret            blinking caret (1s steps(1))
+ *   mm-spin             spinner (0.7s linear)
+ *   mm-fade-up          6px rise (inserted text + chips)
+ *   mm-pop              check-mark pop-in
+ *   mm-breathe          sparkle breathing (1.5s)
+ */
+
+@keyframes mm-wf {
+  0%,
+  100% {
+    transform: scaleY(var(--b, 0.34));
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes mm-wf-idle {
+  0%,
+  100% {
+    transform: scaleY(0.22);
+  }
+  50% {
+    transform: scaleY(0.4);
+  }
+}
+
+@keyframes mm-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.22;
+    transform: translateY(0) scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1);
+  }
+}
+
+@keyframes mm-ring {
+  0% {
+    transform: scale(0.82);
+    opacity: 0.5;
+  }
+  70% {
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes mm-caret {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes mm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes mm-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mm-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes mm-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.85;
+  }
+}
