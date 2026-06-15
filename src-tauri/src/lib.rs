@@ -142,14 +142,26 @@ fn stop_dictation(app: &AppHandle) {
                 emit_result(&app, &final_text, words);
 
                 // ── inject at the OS cursor (clipboard-paste; Unicode-safe) ──
-                match inject::inject(&final_text, false, true) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        eprintln!("[inject] {e}");
-                        // Text is on the clipboard regardless; tell the UI it can
-                        // prompt the user to grant Accessibility + paste manually.
-                        let _ = app.emit_to("main", "inject:needs-permission", e);
-                    }
+                // enigo's paste calls macOS Text Input Source APIs
+                // (TSMGetInputSourceProperty) that assert they run on the main
+                // thread — calling them from this worker thread hard-crashes on
+                // macOS 14+. Marshal the injection onto the main thread and wait.
+                let inject_text = final_text.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                let dispatched = app.run_on_main_thread(move || {
+                    let _ = tx.send(inject::inject(&inject_text, false, true));
+                });
+                let inject_result = match dispatched {
+                    Ok(()) => rx
+                        .recv_timeout(Duration::from_secs(5))
+                        .unwrap_or_else(|_| Err("inject timed out".into())),
+                    Err(e) => Err(format!("dispatch to main thread: {e}")),
+                };
+                if let Err(e) = inject_result {
+                    eprintln!("[inject] {e}");
+                    // Text is on the clipboard regardless; tell the UI it can
+                    // prompt the user to grant Accessibility + paste manually.
+                    let _ = app.emit_to("main", "inject:needs-permission", e);
                 }
 
                 // ── record to history ──
