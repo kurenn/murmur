@@ -48,6 +48,40 @@ impl Default for CaptureSinks {
     }
 }
 
+/// Briefly open the default input stream to trigger the macOS microphone
+/// permission prompt (first access) — used by onboarding. Returns once the
+/// stream has been built/started and torn down on this thread (cpal streams are
+/// !Send on macOS and must drop on the thread that created them).
+pub fn probe_microphone() -> Result<(), String> {
+    let host = cpal::default_host();
+    let device = host
+        .default_input_device()
+        .ok_or("no default input device")?;
+    let supported = device
+        .default_input_config()
+        .map_err(|e| format!("default_input_config: {e}"))?;
+    let fmt = supported.sample_format();
+    let config: cpal::StreamConfig = supported.into();
+    let err_fn = |e| eprintln!("[audio] probe stream error: {e}");
+    let stream = match fmt {
+        cpal::SampleFormat::F32 => {
+            device.build_input_stream(&config, move |_: &[f32], _: &_| {}, err_fn, None)
+        }
+        cpal::SampleFormat::I16 => {
+            device.build_input_stream(&config, move |_: &[i16], _: &_| {}, err_fn, None)
+        }
+        cpal::SampleFormat::U16 => {
+            device.build_input_stream(&config, move |_: &[u16], _: &_| {}, err_fn, None)
+        }
+        other => return Err(format!("unsupported sample format: {other:?}")),
+    }
+    .map_err(|e| format!("build_input_stream: {e}"))?;
+    stream.play().map_err(|e| format!("play: {e}"))?;
+    std::thread::sleep(Duration::from_millis(250));
+    drop(stream);
+    Ok(())
+}
+
 /// Enumerate input device names for the settings mic picker.
 pub fn list_input_devices() -> Vec<String> {
     let host = cpal::default_host();

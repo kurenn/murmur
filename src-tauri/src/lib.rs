@@ -372,6 +372,15 @@ fn copy_text(text: String) -> Result<(), String> {
     cb.set_text(text).map_err(|e| e.to_string())
 }
 
+/// Trigger the OS microphone-permission prompt (onboarding). Runs the cpal probe
+/// off the main thread; the prompt itself is shown by the OS.
+#[tauri::command]
+async fn request_microphone() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(audio::probe_microphone)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 fn accessibility_trusted() -> bool {
     inject::accessibility_trusted()
@@ -423,6 +432,7 @@ pub fn run() {
             get_history,
             list_input_devices,
             copy_text,
+            request_microphone,
             health_check_remote,
             accessibility_trusted,
             request_accessibility
