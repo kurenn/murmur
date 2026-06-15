@@ -691,6 +691,13 @@ function Settings() {
     return () => un?.();
   }, []);
 
+  // Reset connection test status whenever the endpoint changes. Must stay above
+  // the early return below — hooks can't run conditionally.
+  useEffect(() => {
+    setConnStatus("idle");
+    setConnMsg("");
+  }, [cfg?.transcribe.endpoint]);
+
   if (!cfg) return <div style={{ padding: "calc(24px * var(--dsc)) 28px" }} />;
 
   const save = (patch: Partial<AppConfig>) => {
@@ -698,12 +705,6 @@ function Settings() {
     setCfg(next);
     setConfig(next).catch(() => {});
   };
-
-  // Reset connection test status whenever the endpoint changes.
-  useEffect(() => {
-    setConnStatus("idle");
-    setConnMsg("");
-  }, [cfg?.transcribe.endpoint]);
 
   const testConnection = async () => {
     if (!isTauri || !cfg) return;
