@@ -45,7 +45,26 @@ function OverlayApp() {
     return () => un?.();
   }, [forced]);
 
-  const rightMeta = state === "done" && result ? `${result.words} wds` : undefined;
+  // Live recording timer: count up from 0:00 while listening (the listening
+  // state's right-meta). Resets whenever listening ends.
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (state !== "listening") {
+      setElapsed(0);
+      return;
+    }
+    const started = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 500);
+    return () => clearInterval(id);
+  }, [state]);
+
+  const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  const rightMeta =
+    state === "listening"
+      ? fmtTime(elapsed)
+      : state === "done" && result
+        ? `${result.words} wds`
+        : undefined;
   // pill/bar windows are sized to the widget in the shell → fill them.
   const fill = isTauri && (shape === "pill" || shape === "bar");
   // macOS vibrancy / Windows acrylic provide real desktop blur; Linux does not.
