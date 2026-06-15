@@ -4,7 +4,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Icons, type IconName } from "../design-system/icons";
-import { LiveDot, Waveform } from "../design-system/primitives";
+import { Waveform } from "../design-system/primitives";
 import { getConfig, isTauri, setConfig, type AppConfig } from "../state/config";
 
 const TRAFFIC = ["#e06c5a", "#e3b341", "#5bb574"];
@@ -806,7 +806,7 @@ function Settings() {
   };
 
   return (
-    <div style={{ padding: "calc(24px * var(--dsc)) 28px", height: "100%", overflow: "hidden" }}>
+    <div style={{ padding: "calc(24px * var(--dsc)) 28px", height: "100%", overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}>
       <div style={{ fontSize: 20, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em", marginBottom: 4 }}>Voice &amp; model</div>
       <div style={{ fontSize: 13, color: "var(--ink-faint)", marginBottom: 18 }}>
         {cfg.transcribe.enabled
@@ -814,7 +814,7 @@ function Settings() {
           : "Speech is transcribed by Whisper running locally — nothing is uploaded."}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
         {/* LEFT */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Card title="Microphone" icon="mic">
@@ -1049,11 +1049,6 @@ export function Dashboard({ productName = "Murmur", initialView = "home" }: { pr
       {/* title bar — data-tauri-drag-region makes it draggable as the window handle */}
       <div style={titleBar} data-tauri-drag-region>
         <TrafficLights />
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, height: 28, padding: "0 12px 0 11px", borderRadius: 999, background: "var(--surface-2)", border: "0.5px solid var(--line)" }}>
-          <LiveDot size={8} />
-          <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-soft)" }}>Listening</span>
-          <kbd style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--ink-faint)", marginLeft: 2 }}>⌥␣</kbd>
-        </div>
       </div>
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>

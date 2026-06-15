@@ -9,15 +9,15 @@
 
 :root {
   /* color — light */
-  --bg: oklch(0.978 0.0025 75);
-  --surface: oklch(0.999 0.001 75);
-  --surface-2: oklch(0.972 0.003 75);
-  --surface-3: oklch(0.952 0.004 75);
+  --bg: oklch(0.958 0.0045 80);
+  --surface: oklch(0.998 0.0015 85);
+  --surface-2: oklch(0.95 0.005 80);
+  --surface-3: oklch(0.928 0.006 80);
   --ink: oklch(0.245 0.008 70);
   --ink-soft: oklch(0.47 0.008 70);
   --ink-faint: oklch(0.64 0.006 70);
-  --line: oklch(0.915 0.003 75);
-  --line-soft: oklch(0.94 0.0025 75);
+  --line: oklch(0.9 0.005 80);
+  --line-soft: oklch(0.925 0.004 80);
   --accent: oklch(0.6 0.13 248);
   --accent-soft: oklch(0.6 0.13 248 / 0.12);
   --ok: oklch(0.58 0.11 155);
