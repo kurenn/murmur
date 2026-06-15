@@ -365,6 +365,13 @@ fn list_input_devices() -> Vec<String> {
     audio::list_input_devices()
 }
 
+/// Copy text to the system clipboard (used by the "copy dictation" button).
+#[tauri::command]
+fn copy_text(text: String) -> Result<(), String> {
+    let mut cb = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    cb.set_text(text).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn accessibility_trusted() -> bool {
     inject::accessibility_trusted()
@@ -415,9 +422,10 @@ pub fn run() {
             set_config,
             get_history,
             list_input_devices,
+            copy_text,
+            health_check_remote,
             accessibility_trusted,
-            request_accessibility,
-            health_check_remote
+            request_accessibility
         ])
         .setup(|app| {
             // Hydrate live state from persisted config.
@@ -462,7 +470,9 @@ pub fn run() {
                     &main,
                     NSVisualEffectMaterial::Sidebar,
                     Some(NSVisualEffectState::Active),
-                    None,
+                    // Rounded window corners (matches the CSS border-radius on the
+                    // app root, so the frosted backdrop + content round together).
+                    Some(12.0),
                 );
             }
 

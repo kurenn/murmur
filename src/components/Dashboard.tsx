@@ -129,8 +129,27 @@ export interface Recent {
   dur: string;
 }
 
+async function copyToClipboard(text: string): Promise<void> {
+  if (isTauri) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("copy_text", { text });
+  } else {
+    await navigator.clipboard.writeText(text);
+  }
+}
+
 function RecentRow({ r }: { r: Recent }) {
   const [hover, setHover] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await copyToClipboard(r.txt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      /* clipboard unavailable — ignore */
+    }
+  };
   return (
     <div
       onMouseEnter={() => setHover(true)}
@@ -149,10 +168,38 @@ function RecentRow({ r }: { r: Recent }) {
       <span style={{ width: 30, height: 30, flex: "0 0 auto", borderRadius: 8, background: "var(--surface-3)", display: "grid", placeItems: "center", fontSize: 10.5, fontWeight: 600, color: "var(--ink-soft)" }}>
         {r.src.slice(0, 2)}
       </span>
-      <div style={{ minWidth: 0, flex: 1 }}>
+      <div data-selectable style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.txt}</div>
         <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{r.src} · {r.t}</div>
       </div>
+      <button
+        onClick={copy}
+        title={copied ? "Copied" : "Copy transcript"}
+        aria-label="Copy transcript"
+        style={{
+          flex: "0 0 auto",
+          width: 28,
+          height: 28,
+          display: "grid",
+          placeItems: "center",
+          border: "none",
+          borderRadius: 8,
+          cursor: "pointer",
+          background: hover || copied ? "var(--surface-3)" : "transparent",
+          color: copied ? "var(--ok)" : "var(--ink-faint)",
+          opacity: hover || copied ? 1 : 0,
+          transition: "opacity .12s, background .12s, color .12s",
+        }}
+      >
+        {copied ? (
+          Icons.check({ size: 14 })
+        ) : (
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+        )}
+      </button>
       <div style={{ textAlign: "right", flex: "0 0 auto", fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-faint)", fontVariantNumeric: "tabular-nums" }}>
         <div style={{ color: "var(--ink-soft)" }}>{r.wpm} wpm</div>
         <div style={{ marginTop: 2 }}>{r.dur}</div>
@@ -246,6 +293,7 @@ function Home() {
   const [needsAccess, setNeedsAccess] = useState(false);
   const [needsModel, setNeedsModel] = useState<string | null>(null);
   const [dlProgress, setDlProgress] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!isTauri) return;
@@ -293,6 +341,8 @@ function Home() {
     wpm: e.wpm,
     dur: e.duration,
   }));
+  const q = query.trim().toLowerCase();
+  const filtered = q ? recents.filter((r) => r.txt.toLowerCase().includes(q)) : recents;
 
   return (
     <div style={{ padding: "calc(26px * var(--dsc)) 28px", display: "flex", flexDirection: "column", gap: "calc(20px * var(--dsc))", height: "100%", overflow: "hidden" }}>
@@ -325,22 +375,32 @@ function Home() {
           <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>Recent dictations</span>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, height: 28, padding: "0 10px", borderRadius: 999, background: "var(--surface-2)", border: "0.5px solid var(--line)", color: "var(--ink-faint)" }}>
             {Icons.search({ size: 13 })}
-            <span style={{ fontSize: 12 }}>Search transcripts</span>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search transcripts"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              style={{ border: "none", background: "transparent", outline: "none", fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--ink)", width: 140 }}
+            />
           </div>
         </div>
-        {recents.length === 0 ? (
+        {filtered.length === 0 ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 24, textAlign: "center" }}>
             <span style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "grid", placeItems: "center", color: "var(--ink-faint)" }}>
-              {Icons.mic({ size: 20 })}
+              {Icons[q ? "search" : "mic"]({ size: 20 })}
             </span>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-soft)" }}>No dictations yet</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-soft)" }}>
+              {q ? "No matching transcripts" : "No dictations yet"}
+            </div>
             <div style={{ fontSize: 12.5, color: "var(--ink-faint)", maxWidth: 280 }}>
-              Hold ⌥ Space anywhere and start talking — your transcripts will appear here.
+              {q ? `Nothing matches “${query.trim()}”. Try a different search.` : "Hold ⌥ Space anywhere and start talking — your transcripts will appear here."}
             </div>
           </div>
         ) : (
           <div style={{ padding: 6, overflow: "auto" }}>
-            {recents.map((r, i) => (
+            {filtered.map((r, i) => (
               <RecentRow key={i} r={r} />
             ))}
           </div>
@@ -985,7 +1045,7 @@ export function Dashboard({ productName = "Murmur", initialView = "home" }: { pr
   };
 
   return (
-    <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: "transparent", fontFamily: "var(--font-ui)", overflow: "hidden" }}>
+    <div style={{ width: "100%", height: "100vh", display: "flex", flexDirection: "column", background: "transparent", fontFamily: "var(--font-ui)", overflow: "hidden", borderRadius: 12 }}>
       {/* title bar — data-tauri-drag-region makes it draggable as the window handle */}
       <div style={titleBar} data-tauri-drag-region>
         <TrafficLights />
