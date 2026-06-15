@@ -1053,7 +1053,7 @@ export function Dashboard({ productName = "Murmur", initialView = "home" }: { pr
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* sidebar */}
-        <div style={{ width: 210, flex: "0 0 auto", borderRight: "0.5px solid var(--line)", background: "color-mix(in oklch, var(--surface) 64%, transparent)", display: "flex", flexDirection: "column", padding: 12 }}>
+        <div style={{ width: 210, flex: "0 0 auto", borderRight: "0.5px solid var(--line)", background: "var(--surface)", display: "flex", flexDirection: "column", padding: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 8px 16px" }}>
             <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--ink)", color: "var(--surface)", display: "grid", placeItems: "center" }}>
               {Icons.waveDot({ size: 16 })}

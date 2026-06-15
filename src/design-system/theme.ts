@@ -29,15 +29,15 @@ type VarMap = Record<string, string>;
 
 export const MM_THEMES: { light: VarMap; dark: VarMap } = {
   light: {
-    "--bg": "oklch(0.958 0.0045 80)",
-    "--surface": "oklch(0.998 0.0015 85)",
-    "--surface-2": "oklch(0.95 0.005 80)",
-    "--surface-3": "oklch(0.928 0.006 80)",
+    "--bg": "oklch(0.968 0.004 80)",
+    "--surface": "oklch(0.997 0.0015 80)",
+    "--surface-2": "oklch(0.962 0.005 80)",
+    "--surface-3": "oklch(0.94 0.006 80)",
     "--ink": "oklch(0.245 0.008 70)",
     "--ink-soft": "oklch(0.47 0.008 70)",
     "--ink-faint": "oklch(0.64 0.006 70)",
-    "--line": "oklch(0.9 0.005 80)",
-    "--line-soft": "oklch(0.925 0.004 80)",
+    "--line": "oklch(0.905 0.005 75)",
+    "--line-soft": "oklch(0.93 0.004 75)",
     "--accent": "oklch(0.60 0.13 248)",
     "--accent-soft": "oklch(0.60 0.13 248 / 0.12)",
     "--ok": "oklch(0.58 0.11 155)",
@@ -62,17 +62,11 @@ export const MM_THEMES: { light: VarMap; dark: VarMap } = {
   },
 };
 
-// The native macOS UI stack. "Clean" maps to this so the app reads as a real
-// Mac app by default; Editorial/Geometric still offer the brand web fonts.
-const SYSTEM_UI =
-  '-apple-system, system-ui, "SF Pro Text", BlinkMacSystemFont, "Segoe UI", sans-serif';
-const SYSTEM_DISPLAY =
-  '-apple-system, system-ui, "SF Pro Display", BlinkMacSystemFont, "Segoe UI", sans-serif';
-
+// Font pairings, verbatim from the design handoff (design/theme.jsx MM_FONTS).
 export const MM_FONTS: Record<FontPairing, { ui: string; display: string }> = {
   Clean: {
-    ui: SYSTEM_UI,
-    display: SYSTEM_DISPLAY,
+    ui: '"Hanken Grotesk", system-ui, sans-serif',
+    display: '"Hanken Grotesk", system-ui, sans-serif',
   },
   Editorial: {
     ui: '"Hanken Grotesk", system-ui, sans-serif',
@@ -90,7 +84,7 @@ export const MM_DENSITY: Record<Density, number> = {
   Comfy: 1.16,
 };
 
-const MONO = 'ui-monospace, "SF Mono", "Menlo", "Spline Sans Mono", monospace';
+const MONO = '"Spline Sans Mono", ui-monospace, monospace';
 
 /** Write a ThemePrefs object onto a root element's inline CSS variables. */
 export function applyTheme(t: ThemePrefs, root: HTMLElement = document.documentElement): void {
