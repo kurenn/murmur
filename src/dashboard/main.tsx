@@ -1,48 +1,69 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "../design-system/fonts.css";
 import "../design-system/tokens.css";
 import "../design-system/native.css";
 import "../design-system/keyframes.css";
 import { applyTheme, THEME_DEFAULTS } from "../design-system/theme";
-import { getConfig, onConfigChanged } from "../state/config";
+import { getConfig, onConfigChanged, setConfig, type AppConfig } from "../state/config";
 import { installNativeBehaviors } from "../native";
 import { Dashboard } from "../components/Dashboard";
+import { Onboarding } from "../components/Onboarding";
 
 installNativeBehaviors();
 
-// Apply defaults immediately (no flash), then hydrate from persisted config and
-// keep the theme live as settings change.
+// Apply defaults immediately (no flash) before the persisted config loads.
 applyTheme(THEME_DEFAULTS);
-// On macOS the window carries vibrancy (frosted sidebar), so the body must be
-// transparent for the material to show; elsewhere paint the solid background.
+// On macOS the window is transparent (rounded corners), so paint the body
+// transparent; elsewhere paint the solid background.
 const onMac = typeof navigator !== "undefined" && /Mac/.test(navigator.userAgent);
 document.body.style.background = onMac ? "transparent" : "var(--bg)";
 
-let productName = THEME_DEFAULTS.productName;
-getConfig().then((c) => {
-  applyTheme(c.theme);
-  productName = c.theme.productName;
-  render();
-});
-// On live config changes, re-apply the theme (CSS variables — no React work) and
-// only re-render the tree when productName, the one React-visible prop, changes.
-// Re-rendering the whole app on every save caused a reconciliation storm that
-// froze the window.
-onConfigChanged((c) => {
-  applyTheme(c.theme);
-  if (c.theme.productName !== productName) {
-    productName = c.theme.productName;
-    render();
-  }
-});
+function App() {
+  const [cfg, setCfg] = useState<AppConfig | null>(null);
 
-const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
-function render() {
-  root.render(
-    <React.StrictMode>
-      <Dashboard productName={productName} />
-    </React.StrictMode>,
-  );
+  useEffect(() => {
+    let un: (() => void) | undefined;
+    getConfig().then((c) => {
+      applyTheme(c.theme);
+      setCfg(c);
+    });
+    onConfigChanged((c) => {
+      applyTheme(c.theme); // theme is CSS variables — no React work needed
+      // Only re-render for the few fields this top-level view depends on, so a
+      // settings save doesn't trigger a full-tree reconciliation.
+      setCfg((prev) =>
+        prev &&
+        prev.onboarded === c.onboarded &&
+        prev.userName === c.userName &&
+        prev.theme.productName === c.theme.productName
+          ? prev
+          : c,
+      );
+    }).then((u) => (un = u));
+    return () => un?.();
+  }, []);
+
+  if (!cfg) return null;
+
+  if (!cfg.onboarded) {
+    return (
+      <Onboarding
+        initialName={cfg.userName}
+        onDone={(name) => {
+          const next = { ...cfg, userName: name, onboarded: true };
+          setCfg(next); // optimistic — switch to the dashboard immediately
+          setConfig(next).catch(() => {});
+        }}
+      />
+    );
+  }
+
+  return <Dashboard productName={cfg.theme.productName} userName={cfg.userName} />;
 }
-render();
+
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);

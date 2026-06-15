@@ -33,7 +33,7 @@ function relTime(createdAt: number): string {
 // window to the tray (so "Open Murmur" can bring it back); minimize/zoom are the
 // native window ops. onMouseDown stopPropagation keeps the title-bar drag region
 // from swallowing the click.
-function TrafficLights() {
+export function TrafficLights() {
   const [hover, setHover] = useState(false);
   const ctl = async (action: "hide" | "minimize" | "toggleMaximize") => {
     if (!isTauri) return;
@@ -288,7 +288,7 @@ function SetupBanner({
   );
 }
 
-function Home() {
+function Home({ userName }: { userName: string }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [needsAccess, setNeedsAccess] = useState(false);
   const [needsModel, setNeedsModel] = useState<string | null>(null);
@@ -347,7 +347,7 @@ function Home() {
   return (
     <div style={{ padding: "calc(26px * var(--dsc)) 28px", display: "flex", flexDirection: "column", gap: "calc(20px * var(--dsc))", height: "100%", overflow: "hidden" }}>
       <div>
-        <div style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>{timeGreeting()}, Robyn</div>
+        <div style={{ fontSize: 22, fontWeight: 600, color: "var(--ink)", letterSpacing: "-0.02em" }}>{timeGreeting()}{userName ? `, ${userName}` : ""}</div>
         <div style={{ fontSize: 13.5, color: "var(--ink-faint)", marginTop: 2 }}>
           {stats.wordsToday > 0 ? (
             <>
@@ -1024,14 +1024,14 @@ function Settings() {
 }
 
 // ── shell ────────────────────────────────────────────────────────────────
-export function Dashboard({ productName = "Murmur", initialView = "home" }: { productName?: string; initialView?: "home" | "settings" }) {
+export function Dashboard({ productName = "Murmur", userName = "", initialView = "home" }: { productName?: string; userName?: string; initialView?: "home" | "settings" }) {
   const [active, setActive] = useState<"home" | "history" | "settings">(initialView);
   const nav: { id: "home" | "history" | "settings"; icon: IconName; label: string }[] = [
     { id: "home", icon: "bolt", label: "Home" },
     { id: "history", icon: "clock", label: "History" },
     { id: "settings", icon: "sliders", label: "Settings" },
   ];
-  const content = active === "settings" ? <Settings /> : <Home />;
+  const content = active === "settings" ? <Settings /> : <Home userName={userName} />;
 
   const titleBar: CSSProperties = {
     height: 44,
@@ -1066,10 +1066,12 @@ export function Dashboard({ productName = "Murmur", initialView = "home" }: { pr
             ))}
           </div>
           <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 10, padding: "10px 8px", borderTop: "0.5px solid var(--line-soft)" }}>
-            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-3)", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}>R</span>
+            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--surface-3)", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)" }}>
+              {(userName.trim()[0] ?? "M").toUpperCase()}
+            </span>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>Robyn Mackey</div>
-              <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Pro · local</div>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userName.trim() || "Murmur"}</div>
+              <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Local</div>
             </div>
           </div>
         </div>

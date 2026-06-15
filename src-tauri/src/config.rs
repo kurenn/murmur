@@ -41,6 +41,10 @@ impl Default for ThemePrefs {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Config {
+    /// What to call the user (greeting + sidebar). Empty until onboarding.
+    pub user_name: String,
+    /// First-run onboarding completed.
+    pub onboarded: bool,
     pub model: String,
     /// "CPU" | "GPU"
     pub compute: String,
@@ -62,6 +66,8 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            user_name: String::new(),
+            onboarded: false,
             model: "base".into(),
             compute: "GPU".into(),
             trigger_mode: "Push-to-talk".into(),

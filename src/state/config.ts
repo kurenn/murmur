@@ -20,6 +20,8 @@ export interface RemoteTranscribe {
 }
 
 export interface AppConfig {
+  userName: string;
+  onboarded: boolean;
   model: string;
   compute: Compute;
   triggerMode: TriggerMode;
@@ -36,6 +38,8 @@ export interface AppConfig {
 }
 
 export const CONFIG_DEFAULTS: AppConfig = {
+  userName: "",
+  onboarded: false,
   model: "base",
   compute: "GPU",
   triggerMode: "Push-to-talk",
