@@ -37,6 +37,9 @@ whisper-rs = "0.16"
 # Whisper server (OpenAI-compatible /v1/audio/transcriptions).
 reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "multipart", "rustls-tls"] }
 futures-util = "0.3"
+# High-quality sinc/polyphase resampling (used in resample_to_16k; falls back to
+# box-filter on any rubato error so inference is never blocked).
+rubato = "0.15"
 # Text injection: clipboard + synthetic paste/typing.
 enigo = "0.6"
 arboard = "3"
@@ -44,4 +47,7 @@ arboard = "3"
 [target.'cfg(target_os = "macos")'.dependencies]
 # Accessibility (AXIsProcessTrusted) check + prompt — required for synthetic input.
 macos-accessibility-client = "0.0.2"
+# On macOS, override the CPU-only whisper-rs with the Metal GPU backend.
+# CoreML is intentionally omitted (requires a generated CoreML model bundle).
+whisper-rs = { version = "0.16", features = ["metal"] }
 

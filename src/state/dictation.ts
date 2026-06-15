@@ -10,7 +10,8 @@ export type DictationState =
   | "listening"
   | "transcribing"
   | "polishing"
-  | "done";
+  | "done"
+  | "error";
 
 export type OverlayShape = "pill" | "orb" | "bar";
 
@@ -32,16 +33,19 @@ export const STATE_META: Record<DictationState, StateMeta> = {
   transcribing: { glyph: "spinner", label: "Transcribing", tone: "soft", right: "whisper" },
   polishing: { glyph: "sparkle", label: "Polishing", tone: "accent", right: "auto-edit" },
   done: { glyph: "check", label: "Inserted", tone: "ink", right: "32 wds" },
+  error: { glyph: "mic", label: "Couldn't transcribe", tone: "faint", right: null },
 };
 
 /** Auto-cycle timeline (ms per state) from the prototype showcase — used only
- * for the dev/mock driver, never in the real pipeline. */
+ * for the dev/mock driver, never in the real pipeline. The "error" state is
+ * exceptional and not part of the auto-cycle (STATE_ORDER excludes it). */
 export const MOCK_DURATIONS: Record<DictationState, number> = {
   idle: 1500,
   listening: 2700,
   transcribing: 1500,
   polishing: 1400,
   done: 2400,
+  error: 0,
 };
 
 export const STATE_ORDER: DictationState[] = [

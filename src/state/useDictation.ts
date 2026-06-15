@@ -17,10 +17,12 @@ export function useDictation(): {
   state: DictationState;
   levels: number[];
   result: DictationResult | null;
+  error: string | null;
 } {
   const [state, setState] = useState<DictationState>("idle");
   const [levels, setLevels] = useState<number[]>([]);
   const [result, setResult] = useState<DictationResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // ── Tauri: real events from the Rust core ──────────────────────────
   useEffect(() => {
@@ -32,12 +34,18 @@ export function useDictation(): {
         await listen<DictationState>("dictation:state", (e) => {
           setState(e.payload);
           if (e.payload !== "listening") setLevels([]);
-          if (e.payload === "listening") setResult(null);
+          if (e.payload === "listening") {
+            setResult(null);
+            setError(null);
+          }
         }),
       );
       unlisteners.push(await listen<number[]>("audio:levels", (e) => setLevels(e.payload)));
       unlisteners.push(
         await listen<DictationResult>("dictation:result", (e) => setResult(e.payload)),
+      );
+      unlisteners.push(
+        await listen<{ message: string }>("dictation:error", (e) => setError(e.payload.message)),
       );
     })();
     return () => unlisteners.forEach((u) => u());
@@ -68,5 +76,5 @@ export function useDictation(): {
     return () => clearInterval(id);
   }, [state]);
 
-  return { state, levels, result };
+  return { state, levels, result, error };
 }

@@ -44,6 +44,9 @@ pub enum DictationState {
     Transcribing,
     Polishing,
     Done,
+    /// A fatal error occurred; the UI shows an error badge. Keep in sync with
+    /// src/state/dictation.ts (DictationState union and STATE_META).
+    Error,
 }
 
 /// Shared app state managed by Tauri (`app.state::<AppState>()`).
@@ -74,6 +77,11 @@ pub struct AppState {
     pub hotkey: Mutex<Shortcut>,
     /// Last-applied overlay shape, so we only resize/reposition on change.
     pub overlay_shape: Mutex<String>,
+    /// Display name of the transcription language (e.g. "English", "Español").
+    /// Mapped to an ISO 639-1 code in lib.rs unless auto_detect_language is set.
+    pub language: Mutex<String>,
+    /// When true, pass no language hint to Whisper so it auto-detects per utterance.
+    pub auto_detect_language: AtomicBool,
 }
 
 impl Default for AppState {
@@ -92,6 +100,8 @@ impl Default for AppState {
             trigger_mode: Mutex::new(TriggerMode::default()),
             hotkey: Mutex::new(Shortcut::new(Some(Modifiers::ALT), Code::Space)),
             overlay_shape: Mutex::new("pill".to_string()),
+            language: Mutex::new("English".to_string()),
+            auto_detect_language: AtomicBool::new(true),
         }
     }
 }
@@ -118,4 +128,19 @@ pub fn emit_result(app: &AppHandle, text: &str, words: usize) {
     };
     let _ = app.emit_to("overlay", "dictation:result", payload.clone());
     let _ = app.emit_to("main", "dictation:result", payload);
+}
+
+/// Payload for the "dictation:error" event.
+#[derive(Clone, Serialize)]
+pub struct DictationError {
+    pub message: String,
+}
+
+/// Push an error message to both windows ("dictation:error").
+pub fn emit_error(app: &AppHandle, message: &str) {
+    let payload = DictationError {
+        message: message.to_string(),
+    };
+    let _ = app.emit_to("overlay", "dictation:error", payload.clone());
+    let _ = app.emit_to("main", "dictation:error", payload);
 }

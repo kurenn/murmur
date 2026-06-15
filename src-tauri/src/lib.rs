@@ -19,7 +19,21 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 use audio::CaptureSinks;
-use state::{emit, emit_result, AppState, DictationState, TriggerMode};
+use state::{emit, emit_error, emit_result, AppState, DictationState, TriggerMode};
+
+/// Map a UI display-name to an ISO 639-1 language code for Whisper.
+/// Returns None for unknown names so Whisper auto-detects.
+fn lang_code(name: &str) -> Option<String> {
+    match name {
+        "English" => Some("en".into()),
+        "Español" | "Espanol" => Some("es".into()),
+        "Français" | "Francais" => Some("fr".into()),
+        "日本語" | "Japanese" => Some("ja".into()),
+        "Deutsch" => Some("de".into()),
+        "中文" | "Chinese" => Some("zh".into()),
+        _ => None,
+    }
+}
 
 /// Begin a dictation: idle → listening, start mic capture.
 fn start_dictation(app: &AppHandle) {
@@ -91,21 +105,24 @@ fn stop_dictation(app: &AppHandle) {
         let model = st.model.lock().unwrap().clone();
         let use_gpu = st.use_gpu.load(Ordering::Relaxed);
         let remote = st.transcribe.lock().unwrap().clone();
+        let language = st.language.lock().unwrap().clone();
+        let auto_detect = st.auto_detect_language.load(Ordering::Relaxed);
+        let lang: Option<String> = if auto_detect { None } else { lang_code(&language) };
 
         // Remote server if enabled, else local Whisper. A remote failure (server
         // down, bad URL) falls back to local so dictation still works offline.
         let transcribed = if remote.enabled {
             match tauri::async_runtime::block_on(transcribe::transcribe_remote(
-                &remote, &audio_16k, None,
+                &remote, &audio_16k, lang.as_deref(),
             )) {
                 Ok(t) => Ok(t),
                 Err(e) => {
                     eprintln!("[transcribe] remote failed ({e}); falling back to local");
-                    st.whisper.transcribe(&app, &model, &audio_16k, None, use_gpu)
+                    st.whisper.transcribe(&app, &model, &audio_16k, lang.as_deref(), use_gpu)
                 }
             }
         } else {
-            st.whisper.transcribe(&app, &model, &audio_16k, None, use_gpu)
+            st.whisper.transcribe(&app, &model, &audio_16k, lang.as_deref(), use_gpu)
         };
 
         match transcribed {
@@ -159,6 +176,10 @@ fn stop_dictation(app: &AppHandle) {
             }
             Err(e) => {
                 eprintln!("[transcribe] error: {e}");
+                *st.current.lock().unwrap() = DictationState::Error;
+                emit(&app, DictationState::Error);
+                emit_error(&app, &e);
+                std::thread::sleep(Duration::from_millis(2500));
                 to_idle(&app);
             }
         }
@@ -194,6 +215,9 @@ fn set_config(app: AppHandle, config: config::Config) -> Result<(), String> {
     *st.transcribe.lock().unwrap() = config.transcribe.clone();
     *st.mic_device.lock().unwrap() = config.mic_device.clone();
     *st.trigger_mode.lock().unwrap() = TriggerMode::from_label(&config.trigger_mode);
+    *st.language.lock().unwrap() = config.language.clone();
+    st.auto_detect_language
+        .store(config.auto_detect_language, Ordering::Relaxed);
     apply_hotkey(&app, &config.hotkey);
 
     // Reconfigure the overlay window only when its shape actually changed.
@@ -209,6 +233,30 @@ fn set_config(app: AppHandle, config: config::Config) -> Result<(), String> {
     config::save(&app, &config)?;
     let _ = app.emit("config:changed", config);
     Ok(())
+}
+
+/// HTTP health check for the remote Whisper server endpoint. Returns Ok("ok") on
+/// any 2xx response, Err with a human-readable reason otherwise. The frontend
+/// calls invoke("health_check_remote", { endpoint, apiKey }).
+#[tauri::command]
+async fn health_check_remote(endpoint: String, api_key: String) -> Result<String, String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .map_err(|e| format!("client: {e}"))?;
+
+    let url = format!("{}/health", endpoint.trim_end_matches('/'));
+    let mut req = client.get(&url);
+    if !api_key.is_empty() {
+        req = req.bearer_auth(&api_key);
+    }
+
+    let resp = req.send().await.map_err(|e| format!("request: {e}"))?;
+    if resp.status().is_success() {
+        Ok("ok".into())
+    } else {
+        Err(format!("server returned {}", resp.status()))
+    }
 }
 
 /// Re-register the global hotkey from an accelerator string ("Alt+Space").
@@ -356,7 +404,8 @@ pub fn run() {
             get_history,
             list_input_devices,
             accessibility_trusted,
-            request_accessibility
+            request_accessibility,
+            health_check_remote
         ])
         .setup(|app| {
             // Hydrate live state from persisted config.
@@ -371,6 +420,9 @@ pub fn run() {
                 *st.mic_device.lock().unwrap() = cfg.mic_device.clone();
                 *st.trigger_mode.lock().unwrap() = TriggerMode::from_label(&cfg.trigger_mode);
                 *st.overlay_shape.lock().unwrap() = cfg.overlay_shape.clone();
+                *st.language.lock().unwrap() = cfg.language.clone();
+                st.auto_detect_language
+                    .store(cfg.auto_detect_language, Ordering::Relaxed);
 
                 // Register the configured hotkey.
                 if let Ok(hk) = Shortcut::from_str(&cfg.hotkey) {

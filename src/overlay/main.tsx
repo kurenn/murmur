@@ -26,7 +26,7 @@ document.documentElement.style.background = "transparent";
 document.body.style.background = "transparent";
 
 function OverlayApp() {
-  const { state, levels, result } = useDictation();
+  const { state, levels, result, error } = useDictation();
   // URL ?shape= forces a shape for previewing; otherwise it comes from config.
   const forced = new URLSearchParams(location.search).get("shape") as OverlayShape | null;
   const [shape, setShape] = useState<OverlayShape>(forced ?? "pill");
@@ -75,6 +75,7 @@ function OverlayApp() {
         fill={fill}
         osFrost={osFrost}
         width={!fill && shape === "pill" ? 280 : undefined}
+        error={error}
       />
     </div>
   );

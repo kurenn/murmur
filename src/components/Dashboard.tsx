@@ -659,10 +659,14 @@ function Seg<T extends string>({ options, value, onChange }: { options: T[]; val
 
 const LANGS = ["English", "Español", "Français", "日本語", "Deutsch", "中文"];
 
+type ConnStatus = "idle" | "checking" | "ok" | "error";
+
 function Settings() {
   const [cfg, setCfg] = useState<AppConfig | null>(null);
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
   const [progress, setProgress] = useState<Record<string, number>>({});
+  const [connStatus, setConnStatus] = useState<ConnStatus>("idle");
+  const [connMsg, setConnMsg] = useState<string>("");
 
   // Load config + which models are present + listen for download progress.
   useEffect(() => {
@@ -693,6 +697,27 @@ function Settings() {
     const next = { ...cfg, ...patch };
     setCfg(next);
     setConfig(next).catch(() => {});
+  };
+
+  // Reset connection test status whenever the endpoint changes.
+  useEffect(() => {
+    setConnStatus("idle");
+    setConnMsg("");
+  }, [cfg?.transcribe.endpoint]);
+
+  const testConnection = async () => {
+    if (!isTauri || !cfg) return;
+    setConnStatus("checking");
+    setConnMsg("");
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke<string>("health_check_remote", { endpoint: cfg.transcribe.endpoint, apiKey: cfg.transcribe.apiKey });
+      setConnStatus("ok");
+    } catch (err) {
+      const raw = String(err);
+      setConnMsg(raw.length > 120 ? raw.slice(0, 117) + "…" : raw);
+      setConnStatus("error");
+    }
   };
 
   const selectModel = async (id: string) => {
@@ -792,6 +817,63 @@ function Settings() {
                   placeholder="leave blank for a LAN server"
                   onChange={(v) => save({ transcribe: { ...cfg.transcribe, apiKey: v } })}
                 />
+                {/* Test connection row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 2 }}>
+                  <button
+                    onClick={testConnection}
+                    disabled={!isTauri || connStatus === "checking"}
+                    style={{
+                      flex: "0 0 auto",
+                      border: "0.5px solid var(--line)",
+                      cursor: (!isTauri || connStatus === "checking") ? "default" : "pointer",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "6px 13px",
+                      background: "var(--surface-2)",
+                      color: "var(--ink-soft)",
+                      fontFamily: "var(--font-ui)",
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      opacity: (!isTauri || connStatus === "checking") ? 0.6 : 1,
+                      transition: "opacity .12s",
+                    }}
+                  >
+                    {connStatus === "checking" ? "Checking…" : "Test connection"}
+                  </button>
+                  {connStatus === "ok" && (
+                    <span style={{
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: "var(--ok)",
+                      background: "color-mix(in oklch, var(--ok) 12%, transparent)",
+                      border: "0.5px solid color-mix(in oklch, var(--ok) 30%, transparent)",
+                      borderRadius: 999,
+                      padding: "3px 9px",
+                    }}>
+                      Connected
+                    </span>
+                  )}
+                  {connStatus === "error" && (
+                    <span
+                      title={connMsg}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: "var(--err, #e06c5a)",
+                        background: "color-mix(in oklch, var(--err, #e06c5a) 10%, transparent)",
+                        border: "0.5px solid color-mix(in oklch, var(--err, #e06c5a) 25%, transparent)",
+                        borderRadius: 999,
+                        padding: "3px 9px",
+                        maxWidth: 200,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        display: "inline-block",
+                      }}
+                    >
+                      Unreachable{connMsg ? ` — ${connMsg}` : ""}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
           </Card>

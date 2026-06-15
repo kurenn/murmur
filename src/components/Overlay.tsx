@@ -42,6 +42,8 @@ export interface OverlayProps {
   /** OS provides the blur (macOS vibrancy / Windows acrylic) → lighten the
    * surface so the desktop shows through. False on Linux (CSS-only frost). */
   osFrost?: boolean;
+  /** error message from "dictation:error" — shown when state === "error" */
+  error?: string | null;
 }
 
 function Glyph({ state, size = 30 }: { state: DictationState; size?: number }) {
@@ -59,6 +61,15 @@ function Glyph({ state, size = 30 }: { state: DictationState; size?: number }) {
         return (
           <span style={{ color: "var(--ok)", display: "inline-flex", animation: "mm-pop .35s ease-out" }}>
             {Icons.check({ size: 16 })}
+          </span>
+        );
+      case "error":
+        return (
+          <span style={{ color: "var(--error, #e05252)", display: "inline-flex", animation: "mm-pop .35s ease-out" }}>
+            <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </span>
         );
     }
@@ -81,7 +92,7 @@ function Glyph({ state, size = 30 }: { state: DictationState; size?: number }) {
   );
 }
 
-function Center({ state, levels }: { state: DictationState; levels?: number[] }) {
+function Center({ state, levels, error }: { state: DictationState; levels?: number[]; error?: string | null }) {
   const meta = STATE_META[state];
   if (state === "listening") {
     return (
@@ -113,13 +124,24 @@ function Center({ state, levels }: { state: DictationState; levels?: number[] })
       </span>
     );
   }
+  if (state === "error") {
+    const caption = error ? error.slice(0, 40) : meta.label;
+    return (
+      <span style={{ flex: 1, color: "var(--error, #e05252)", fontSize: 14.5, fontWeight: 500 }}>
+        {caption}
+      </span>
+    );
+  }
   return <span style={{ flex: 1, color: "var(--ink-faint)", fontSize: 14.5, fontWeight: 500 }}>{meta.label}</span>;
 }
 
 function Meta({ state, value }: { state: DictationState; value?: string }) {
   const text = value ?? STATE_META[state].right;
   if (!text) return null;
-  const color = state === "listening" ? "var(--accent)" : "var(--ink-faint)";
+  const color =
+    state === "listening" ? "var(--accent)" :
+    state === "error" ? "var(--error, #e05252)" :
+    "var(--ink-faint)";
   return (
     <span
       style={{
@@ -138,7 +160,7 @@ function Meta({ state, value }: { state: DictationState; value?: string }) {
   );
 }
 
-export function Overlay({ shape = "pill", state = "idle", levels, rightMeta, width, fill, osFrost }: OverlayProps) {
+export function Overlay({ shape = "pill", state = "idle", levels, rightMeta, width, fill, osFrost, error }: OverlayProps) {
   // ── PILL ──────────────────────────────────────────────────────────
   if (shape === "pill") {
     return (
@@ -158,7 +180,7 @@ export function Overlay({ shape = "pill", state = "idle", levels, rightMeta, wid
         }}
       >
         <Glyph state={state} />
-        <Center state={state} levels={levels} />
+        <Center state={state} levels={levels} error={error} />
         <Meta state={state} value={rightMeta} />
       </div>
     );
@@ -185,6 +207,15 @@ export function Overlay({ shape = "pill", state = "idle", levels, rightMeta, wid
           return (
             <span style={{ color: "var(--ok)", display: "inline-flex", animation: "mm-pop .4s ease-out" }}>
               {Icons.check({ size: 30, sw: 2.4 })}
+            </span>
+          );
+        case "error":
+          return (
+            <span style={{ color: "var(--error, #e05252)", display: "inline-flex", animation: "mm-pop .35s ease-out" }}>
+              <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </span>
           );
       }
@@ -221,15 +252,27 @@ export function Overlay({ shape = "pill", state = "idle", levels, rightMeta, wid
             boxShadow: "var(--shadow-sm)",
           }}
         >
-          <span style={{ fontSize: 12, fontWeight: 500, color: state === "done" ? "var(--ink)" : "var(--ink-soft)" }}>
-            {meta.label ?? "Listening"}
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              color:
+                state === "done" ? "var(--ink)" :
+                state === "error" ? "var(--error, #e05252)" :
+                "var(--ink-soft)",
+            }}
+          >
+            {state === "error" ? ((error ? error.slice(0, 40) : null) ?? meta.label ?? "Couldn't transcribe") : (meta.label ?? "Listening")}
           </span>
           {(rightMeta ?? meta.right) && (
             <span
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: 10.5,
-                color: state === "listening" ? "var(--accent)" : "var(--ink-faint)",
+                color:
+                  state === "listening" ? "var(--accent)" :
+                  state === "error" ? "var(--error, #e05252)" :
+                  "var(--ink-faint)",
                 fontVariantNumeric: "tabular-nums",
               }}
             >
@@ -258,7 +301,7 @@ export function Overlay({ shape = "pill", state = "idle", levels, rightMeta, wid
       }}
     >
       <Glyph state={state} size={32} />
-      <Center state={state} levels={levels} />
+      <Center state={state} levels={levels} error={error} />
       <span style={{ width: 1, height: 22, background: "var(--line)", flex: "0 0 auto" }} />
       <Meta state={state} value={rightMeta} />
     </div>

@@ -167,9 +167,9 @@ impl Default for WhisperEngine {
     }
 }
 
-/// Box-filter decimation to 16kHz mono. Adequate for speech → Whisper; swap in
-/// rubato sinc resampling for production quality (see plan).
-pub fn resample_to_16k(input: &[f32], in_rate: u32) -> Vec<f32> {
+/// Box-filter decimation to 16kHz mono. Used as the fallback when rubato is
+/// unavailable or encounters an error. Adequate for speech → Whisper.
+fn resample_box(input: &[f32], in_rate: u32) -> Vec<f32> {
     if input.is_empty() || in_rate == 16_000 {
         return input.to_vec();
     }
@@ -183,6 +183,74 @@ pub fn resample_to_16k(input: &[f32], in_rate: u32) -> Vec<f32> {
         out.push(slice.iter().sum::<f32>() / slice.len() as f32);
     }
     out
+}
+
+/// Resample `input` from `in_rate` Hz to 16 kHz mono using rubato sinc/polyphase
+/// resampling (production quality). Falls back to the box-filter (`resample_box`)
+/// if `in_rate` is already 16 kHz, the input is empty, or rubato returns any error
+/// — so inference is never blocked regardless of the audio device's sample rate.
+pub fn resample_to_16k(input: &[f32], in_rate: u32) -> Vec<f32> {
+    use rubato::{
+        Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType,
+        WindowFunction,
+    };
+
+    if input.is_empty() || in_rate == 16_000 {
+        return input.to_vec();
+    }
+
+    let resample_ratio = 16_000.0 / in_rate as f64;
+
+    // Attempt to build a rubato sinc resampler.  Any construction or processing
+    // error falls back to the box-filter so we never panic or regress quality
+    // relative to the previous behaviour.
+    let result = (|| -> Result<Vec<f32>, Box<dyn std::error::Error>> {
+        let params = SincInterpolationParameters {
+            sinc_len: 256,
+            f_cutoff: 0.95,
+            interpolation: SincInterpolationType::Linear,
+            oversampling_factor: 256,
+            window: WindowFunction::BlackmanHarris2,
+        };
+
+        // chunk_size: number of *input* frames per call to process().
+        let chunk_size = 1024usize;
+
+        let mut resampler = SincFixedIn::<f32>::new(
+            resample_ratio,
+            2.0, // max_resample_ratio_relative
+            params,
+            chunk_size,
+            1, // channels
+        )?;
+
+        let mut output: Vec<f32> = Vec::with_capacity((input.len() as f64 * resample_ratio * 1.01) as usize + 64);
+
+        let mut pos = 0usize;
+        while pos < input.len() {
+            let end = (pos + chunk_size).min(input.len());
+            let mut chunk = input[pos..end].to_vec();
+            // Pad the last chunk to chunk_size so rubato never gets a short buffer.
+            if chunk.len() < chunk_size {
+                chunk.resize(chunk_size, 0.0);
+            }
+            let waves_in = vec![chunk];
+            let waves_out = resampler.process(&waves_in, None)?;
+            output.extend_from_slice(&waves_out[0]);
+            pos = end;
+        }
+
+        // Flush any samples buffered inside the resampler.
+        let waves_out = resampler.process_partial::<Vec<f32>>(None, None)?;
+        output.extend_from_slice(&waves_out[0]);
+
+        Ok(output)
+    })();
+
+    match result {
+        Ok(resampled) => resampled,
+        Err(_) => resample_box(input, in_rate), // graceful fallback
+    }
 }
 
 // ── Remote transcription (OpenAI-compatible Whisper server) ────────────────
