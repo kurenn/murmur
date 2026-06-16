@@ -297,22 +297,39 @@ function Home({ userName }: { userName: string }) {
 
   useEffect(() => {
     if (!isTauri) return;
+    let unlisten = () => {};
     const refreshAccess = async () => {
       const { invoke } = await import("@tauri-apps/api/core");
       setNeedsAccess(!(await invoke<boolean>("accessibility_trusted")));
     };
+    const refreshHistory = async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      setEntries(await invoke<HistoryEntry[]>("get_history"));
+    };
     (async () => {
       const { invoke } = await import("@tauri-apps/api/core");
+      const { listen } = await import("@tauri-apps/api/event");
       setEntries(await invoke<HistoryEntry[]>("get_history"));
       const cfg = await getConfig();
       if (!(await invoke<boolean>("model_downloaded", { model: cfg.model }))) setNeedsModel(cfg.model);
       await refreshAccess();
+      // A finished dictation appends to history on disk and emits "done" — pull
+      // the updated list so it shows in Recent dictations (and the stats) live.
+      unlisten = await listen<string>("dictation:state", (e) => {
+        if (e.payload === "done") refreshHistory().catch(() => {});
+      });
     })().catch(() => {});
-    // Re-check when the user returns from System Settings (the grant doesn't
-    // notify us), so the "Finish setting up" banner clears on its own.
-    const onFocus = () => refreshAccess().catch(() => {});
+    // Re-check access + resync history when the user returns to the window (the
+    // dictation happens from the floating overlay while this may be unfocused).
+    const onFocus = () => {
+      refreshAccess().catch(() => {});
+      refreshHistory().catch(() => {});
+    };
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      unlisten();
+    };
   }, []);
 
   const grant = async () => {
