@@ -297,20 +297,32 @@ function Home({ userName }: { userName: string }) {
 
   useEffect(() => {
     if (!isTauri) return;
+    const refreshAccess = async () => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      setNeedsAccess(!(await invoke<boolean>("accessibility_trusted")));
+    };
     (async () => {
       const { invoke } = await import("@tauri-apps/api/core");
       setEntries(await invoke<HistoryEntry[]>("get_history"));
       const cfg = await getConfig();
-      setNeedsAccess(!(await invoke<boolean>("accessibility_trusted")));
       if (!(await invoke<boolean>("model_downloaded", { model: cfg.model }))) setNeedsModel(cfg.model);
+      await refreshAccess();
     })().catch(() => {});
+    // Re-check when the user returns from System Settings (the grant doesn't
+    // notify us), so the "Finish setting up" banner clears on its own.
+    const onFocus = () => refreshAccess().catch(() => {});
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
 
   const grant = async () => {
     if (!isTauri) return;
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("request_accessibility");
-    setTimeout(async () => setNeedsAccess(!(await invoke<boolean>("accessibility_trusted"))), 1200);
+    // Poll for a bit in case the window keeps focus while they toggle Settings.
+    for (let i = 1; i <= 6; i++) {
+      setTimeout(async () => setNeedsAccess(!(await invoke<boolean>("accessibility_trusted"))), i * 1500);
+    }
   };
 
   const download = async () => {
@@ -571,22 +583,34 @@ export function codeToKey(code: string): string | null {
 /** Render an accelerator like "Alt+Space" as kbd glyphs, and capture a new chord
  * on click. Persists via onRebind → config (Rust re-registers the global shortcut). */
 /** Prompt to grant Input Monitoring (required for the fn-key trigger on macOS).
- *  Renders nothing once granted or on non-macOS (the command returns true). */
+ *  Three states: needs permission → needs restart (granted after launch) → ok.
+ *  Re-checks on window focus so it self-clears when you return from Settings. */
 function InputMonitoringNotice() {
-  const [trusted, setTrusted] = useState(true);
+  const [state, setState] = useState<"ok" | "denied" | "needs-restart">("ok");
   const check = async () => {
     if (!isTauri) return;
     const { invoke } = await import("@tauri-apps/api/core");
-    setTrusted(await invoke<boolean>("input_monitoring_trusted"));
+    if (!(await invoke<boolean>("input_monitoring_trusted"))) return setState("denied");
+    // Granted — but the tap is created at launch, so a restart may be needed.
+    setState((await invoke<boolean>("fn_listener_active")) ? "ok" : "needs-restart");
   };
   useEffect(() => {
     check().catch(() => {});
+    const onFocus = () => check().catch(() => {});
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, []);
-  if (trusted) return null;
-  const grant = async () => {
+  if (state === "ok") return null;
+
+  const denied = state === "denied";
+  const onClick = async () => {
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("request_input_monitoring");
-    setTimeout(() => check().catch(() => {}), 1500);
+    if (denied) {
+      await invoke("request_input_monitoring");
+      setTimeout(() => check().catch(() => {}), 1500);
+    } else {
+      await invoke("restart_app");
+    }
   };
   return (
     <div
@@ -601,15 +625,24 @@ function InputMonitoringNotice() {
       }}
     >
       <div style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
-        Grant <b style={{ color: "var(--ink)" }}>Input Monitoring</b> so Murmur can detect the fn key, then restart the app.
+        {denied ? (
+          <>
+            Grant <b style={{ color: "var(--ink)" }}>Input Monitoring</b> so Murmur can detect the fn key. After
+            enabling Murmur in the list, come back here.
+          </>
+        ) : (
+          <>
+            <b style={{ color: "var(--ink)" }}>Input Monitoring granted.</b> Restart Murmur to enable the fn key.
+          </>
+        )}
       </div>
       <button
-        onClick={grant}
+        onClick={onClick}
         style={{
           flex: "0 0 auto",
           border: "0.5px solid var(--line)",
-          background: "var(--surface)",
-          color: "var(--ink)",
+          background: denied ? "var(--surface)" : "var(--ink)",
+          color: denied ? "var(--ink)" : "var(--bg)",
           borderRadius: 8,
           padding: "6px 12px",
           fontSize: 12.5,
@@ -618,7 +651,7 @@ function InputMonitoringNotice() {
           fontFamily: "var(--font-ui)",
         }}
       >
-        Open settings
+        {denied ? "Open settings" : "Restart now"}
       </button>
     </div>
   );

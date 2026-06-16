@@ -81,6 +81,10 @@ pub struct AppState {
     pub use_fn_trigger: AtomicBool,
     /// Whether the macOS fn-key listener thread has been spawned (spawn-once).
     pub fn_listener_started: AtomicBool,
+    /// Whether the fn-key event tap is actually live (set once the tap is created
+    /// and running). False means Input Monitoring wasn't granted at launch, so the
+    /// fn key won't fire until permission is granted and the app is restarted.
+    pub fn_listener_active: AtomicBool,
     /// Last-applied overlay shape, so we only resize/reposition on change.
     pub overlay_shape: Mutex<String>,
     /// Display name of the transcription language (e.g. "English", "Español").
@@ -107,6 +111,7 @@ impl Default for AppState {
             hotkey: Mutex::new(Shortcut::new(Some(Modifiers::ALT), Code::Space)),
             use_fn_trigger: AtomicBool::new(false),
             fn_listener_started: AtomicBool::new(false),
+            fn_listener_active: AtomicBool::new(false),
             overlay_shape: Mutex::new("pill".to_string()),
             language: Mutex::new("English".to_string()),
             auto_detect_language: AtomicBool::new(true),

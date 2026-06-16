@@ -69,6 +69,7 @@ pub fn spawn_listener(app: AppHandle) {
                         .contains(CGEventFlags::CGEventFlagSecondaryFn);
                     if now_down != down.get() {
                         down.set(now_down);
+                        eprintln!("[fn] {}", if now_down { "down" } else { "up" });
                         if app_cb.state::<AppState>().use_fn_trigger.load(Ordering::Relaxed) {
                             let app2 = app_cb.clone();
                             let _ = app_cb
@@ -79,13 +80,16 @@ pub fn spawn_listener(app: AppHandle) {
                 CallbackResult::Keep
             },
             || {
+                app.state::<AppState>()
+                    .fn_listener_active
+                    .store(true, Ordering::Relaxed);
                 eprintln!("[fn] listener active — hold the fn (Globe) key to dictate");
                 CFRunLoop::run_current()
             },
         );
 
         if res.is_err() {
-            eprintln!("[fn] event tap not created — grant Input Monitoring permission");
+            eprintln!("[fn] event tap not created — grant Input Monitoring permission, then restart");
         }
     });
 }

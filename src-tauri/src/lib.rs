@@ -396,6 +396,21 @@ fn request_input_monitoring() {
     fnkey::open_settings();
 }
 
+/// Whether the fn-key event tap is actually running. False after granting Input
+/// Monitoring at runtime — the tap is created at launch, so a restart is needed.
+/// On non-macOS / non-Fn modes this is irrelevant; returns true to avoid nagging.
+#[tauri::command]
+fn fn_listener_active(app: AppHandle) -> bool {
+    let st = app.state::<AppState>();
+    !st.use_fn_trigger.load(Ordering::Relaxed) || st.fn_listener_active.load(Ordering::Relaxed)
+}
+
+/// Relaunch the app (so a freshly-granted Input Monitoring permission takes effect).
+#[tauri::command]
+fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
 /// Translate a trigger key/button down (`pressed=true`) or up into a dictation
 /// transition, honoring the current trigger mode. Shared by the global-shortcut
 /// handler and the macOS fn-key listener. Must run on the main thread (window
@@ -483,7 +498,9 @@ pub fn run() {
             accessibility_trusted,
             request_accessibility,
             input_monitoring_trusted,
-            request_input_monitoring
+            request_input_monitoring,
+            fn_listener_active,
+            restart_app
         ])
         .setup(|app| {
             // Hydrate live state from persisted config.
