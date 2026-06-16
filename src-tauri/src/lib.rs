@@ -4,6 +4,8 @@ mod config;
 mod fnkey;
 mod history;
 mod inject;
+#[cfg(target_os = "macos")]
+mod mic;
 mod polish;
 mod state;
 mod transcribe;
@@ -355,13 +357,36 @@ fn copy_text(text: String) -> Result<(), String> {
     cb.set_text(text).map_err(|e| e.to_string())
 }
 
-/// Trigger the OS microphone-permission prompt (onboarding). Runs the cpal probe
-/// off the main thread; the prompt itself is shown by the OS.
+/// Trigger the OS microphone-permission prompt (onboarding). On macOS this uses
+/// AVCaptureDevice.requestAccess so the prompt appears exactly once; elsewhere it
+/// falls back to the cpal probe.
 #[tauri::command]
 async fn request_microphone() -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(audio::probe_microphone)
-        .await
-        .map_err(|e| e.to_string())?
+    #[cfg(target_os = "macos")]
+    {
+        mic::request();
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        tauri::async_runtime::spawn_blocking(audio::probe_microphone)
+            .await
+            .map_err(|e| e.to_string())?
+    }
+}
+
+/// Whether microphone access is granted (macOS). True elsewhere (handled by the
+/// OS at capture time).
+#[tauri::command]
+fn microphone_trusted() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        mic::authorized()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
 }
 
 #[tauri::command]
@@ -496,6 +521,7 @@ pub fn run() {
             list_input_devices,
             copy_text,
             request_microphone,
+            microphone_trusted,
             health_check_remote,
             accessibility_trusted,
             request_accessibility,

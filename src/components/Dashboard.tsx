@@ -327,8 +327,12 @@ function Home({ userName }: { userName: string }) {
       refreshHistory().catch(() => {});
     };
     window.addEventListener("focus", onFocus);
+    // Poll the permission state — the focus event is unreliable across app
+    // switches, so the "Finish setting up" banner clears on its own once granted.
+    const id = setInterval(() => refreshAccess().catch(() => {}), 2000);
     return () => {
       window.removeEventListener("focus", onFocus);
+      clearInterval(id);
       unlisten();
     };
   }, []);
@@ -616,7 +620,12 @@ function InputMonitoringNotice() {
     check().catch(() => {});
     const onFocus = () => check().catch(() => {});
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    // Poll too — the webview focus event is unreliable across app switches.
+    const id = setInterval(() => check().catch(() => {}), 2000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(id);
+    };
   }, []);
   if (state === "ok") return null;
 

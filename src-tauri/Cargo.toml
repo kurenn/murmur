@@ -1,6 +1,6 @@
 [package]
 name = "murmur"
-version = "0.1.4"
+version = "0.1.5"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -55,6 +55,11 @@ macos-accessibility-client = "0.0.2"
 # global-shortcut system can't bind fn, so we drop to a low-level event tap.
 core-graphics = "0.25"
 core-foundation = "0.10"
+# Microphone authorization via AVFoundation (single prompt + status check) — the
+# cpal probe re-triggers the system prompt while the decision is still pending.
+objc2 = "0.6"
+block2 = "0.6"
+objc2-foundation = "0.3"
 # On macOS, override the CPU-only whisper-rs with the Metal GPU backend.
 # CoreML is intentionally omitted (requires a generated CoreML model bundle).
 whisper-rs = { version = "0.16", features = ["metal"] }

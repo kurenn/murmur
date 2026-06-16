@@ -2463,9 +2463,10 @@ dependencies = [
 
 [[package]]
 name = "murmur"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "arboard",
+ "block2",
  "core-foundation",
  "core-graphics",
  "cpal",
@@ -2473,6 +2474,8 @@ dependencies = [
  "futures-util",
  "hound",
  "macos-accessibility-client",
+ "objc2",
+ "objc2-foundation",
  "reqwest 0.12.28",
  "rubato",
  "serde",

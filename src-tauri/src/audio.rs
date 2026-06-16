@@ -52,6 +52,9 @@ impl Default for CaptureSinks {
 /// permission prompt (first access) — used by onboarding. Returns once the
 /// stream has been built/started and torn down on this thread (cpal streams are
 /// !Send on macOS and must drop on the thread that created them).
+// macOS requests mic access via AVFoundation (see mic.rs); this probe is the
+// fallback used on other platforms.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub fn probe_microphone() -> Result<(), String> {
     let host = cpal::default_host();
     let device = host

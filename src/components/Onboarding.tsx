@@ -82,11 +82,18 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
       setDownloaded(await invoke<boolean>("model_downloaded", { model }));
       setAccessOk(await invoke<boolean>("accessibility_trusted"));
       setInputMonOk(await invoke<boolean>("input_monitoring_trusted"));
+      setMicDone(await invoke<boolean>("microphone_trusted"));
     };
     refresh().catch(() => {});
+    // The webview's window "focus" event is unreliable for app-level switches
+    // (returning from System Settings), so poll while on the setup step.
     const onFocus = () => refresh().catch(() => {});
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    const id = setInterval(() => refresh().catch(() => {}), 1500);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(id);
+    };
   }, [step, model]);
 
   const downloadModel = async () => {
@@ -114,11 +121,13 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
   };
 
   const requestMic = async () => {
-    if (isTauri) {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("request_microphone").catch(() => {});
+    if (!isTauri) {
+      setMicDone(true);
+      return;
     }
-    setMicDone(true);
+    const { invoke } = await import("@tauri-apps/api/core");
+    // Shows the macOS prompt once; the poll above flips the row to "Granted".
+    await invoke("request_microphone").catch(() => {});
   };
 
   const grantAccess = async () => {
