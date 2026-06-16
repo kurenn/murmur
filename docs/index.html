@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Murmur — Local voice-to-text for the desktop</title>
+<meta name="description" content="Hold a key and talk into any app. Murmur turns rambling speech into clean, formatted text — transcribed locally with Whisper, polished by AI, and dropped right at your cursor. Open-source, on-device, no cloud." />
+
+<meta property="og:title" content="Murmur — Speak anywhere. It writes for you." />
+<meta property="og:description" content="Local, open-source voice-to-text for the desktop. Transcribed by Whisper, polished by AI, never uploaded." />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#2b2722" />
+
+<link rel="icon" type="image/svg+xml" href="assets/favicon/icon.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/icon_32.png" />
+<link rel="icon" type="image/png" sizes="48x48" href="assets/favicon/icon_48.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/icon_16.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ── icon symbol sheet (stroke icons from the design's MMIcon set) ── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-waveDot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h2M9 7v10M14 4v16M19 9v6M22 12h0" /></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="12" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" /></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2.5" /><path d="M9.5 3v3M14.5 3v3M9.5 18v3M14.5 18v3M3 9.5h3M3 14.5h3M18 9.5h3M18 14.5h3" /></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7" /></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 8-7 10-4-2-7-5.6-7-10V6z" /></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.6 2.4 4 5.6 4 9s-1.4 6.6-4 9c-2.6-2.4-4-5.6-4-9s1.4-6.6 4-9z" /></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></symbol>
+  <symbol id="i-command" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3z" /></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h9M18 8h1M5 16h1M10 16h9" /><circle cx="16" cy="8" r="2" /><circle cx="8" cy="16" r="2" /></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5" /><path d="M5 15V5.5A2.5 2.5 0 0 1 7.5 3H15" /></symbol>
+</svg>
+
+<!-- ══════════════════ HERO (dark scope) ══════════════════ -->
+<header class="hero section" id="top" data-theme="dark">
+  <div class="hero__wash"></div>
+
+  <!-- sticky nav (transparent over hero, frosts on scroll) -->
+  <nav class="nav" data-theme="dark" data-nav>
+    <div class="lwrap lwrap--nav nav__row">
+      <a class="wordmark" href="#top" aria-label="Murmur — home">
+        <span class="wordmark__mark"><svg width="17" height="17"><use href="#i-waveDot" /></svg></span>
+        <span class="wordmark__name">Murmur</span>
+      </a>
+      <div class="nav__links">
+        <a class="pill-link" href="#privacy">Privacy</a>
+        <a class="pill-link" href="#models">Models</a>
+        <a class="pill-link" href="#app">The app</a>
+      </div>
+      <div class="nav__right">
+        <a class="pill-link nav-source" href="https://github.com/kurenn/murmur" target="_blank" rel="noopener">
+          <svg width="15" height="15"><use href="#i-chip" /></svg> View source
+        </a>
+        <a class="btn btn-primary btn-sm" href="https://github.com/kurenn/murmur/releases" target="_blank" rel="noopener">Download</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="hero__body">
+    <div class="lwrap lwrap--hero centered-head">
+      <div class="hero__eyebrow"><span class="eyebrow__dot"></span>Local · open-source voice-to-text</div>
+      <h1 class="hero__h1">Speak anywhere.<br />It writes for you.</h1>
+      <p class="hero__sub">Hold a key and talk into any app. Murmur turns rambling speech into clean, formatted text — transcribed locally with Whisper, polished by AI, and dropped right at your cursor.</p>
+      <div class="hero__cluster">
+        <div class="dl-cluster dl-cluster--center">
+          <div class="dl-row">
+            <a class="btn btn-primary" href="https://github.com/kurenn/murmur/releases" target="_blank" rel="noopener">
+              <span style="display:inline-flex;margin-right:-2px"><svg width="16" height="16"><use href="#i-chevron" /></svg></span>
+              Download for macOS
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/kurenn/murmur/releases" target="_blank" rel="noopener">Windows &amp; Linux</a>
+          </div>
+          <div class="dl-meta">
+            <span class="dl-meta__ok"><svg width="13" height="13"><use href="#i-shield" /></svg><span>Free &amp; open source</span></span>
+            <span class="dl-meta__sep">·</span>
+            <span>macOS 12+ · Apple Silicon &amp; Intel</span>
+          </div>
+        </div>
+      </div>
+      <div class="hero__widget">
+        <div class="pill-loop">
+          <div class="pill-loop__glow"></div>
+          <div class="pill" data-pill data-width="320"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ══════════════════ PRIVACY / LOCAL-FIRST ══════════════════ -->
+  <section class="section privacy" id="privacy">
+    <div class="lwrap">
+      <div class="reveal centered-head">
+        <div class="eyebrow eyebrow--center"><span class="eyebrow__dot"></span>Privacy by architecture</div>
+        <h2 class="headline headline--center" style="max-width:780px">Your voice never leaves your laptop.</h2>
+        <p class="lede lede--center" style="max-width:620px">Most dictation tools stream your microphone to someone else's servers. Murmur doesn't. Transcription and the AI cleanup pass both run locally — so the most personal data you produce all day stays on the one machine you control.</p>
+      </div>
+
+      <!-- on-device flow diagram -->
+      <div class="reveal flow-wrap">
+        <div class="flow-box">
+          <span class="flow-tab"><span class="flow-tab__dot"></span>Your device</span>
+          <div class="flow">
+            <div class="flow-node">
+              <span class="flow-node__icon"><svg width="19" height="19"><use href="#i-mic" /></svg></span>
+              <div><div class="flow-node__title">You speak</div><div class="flow-node__sub">hold ⌥ Space</div></div>
+            </div>
+            <div class="flow-arrow"><span><svg width="18" height="18"><use href="#i-chevron" /></svg></span></div>
+            <div class="flow-node">
+              <span class="flow-node__icon flow-node__icon--accent"><svg width="19" height="19"><use href="#i-chip" /></svg></span>
+              <div><div class="flow-node__title">Whisper transcribes</div><div class="flow-node__sub">openai/whisper · local</div></div>
+            </div>
+            <div class="flow-arrow"><span><svg width="18" height="18"><use href="#i-chevron" /></svg></span></div>
+            <div class="flow-node">
+              <span class="flow-node__icon flow-node__icon--accent"><svg width="19" height="19"><use href="#i-sparkle" /></svg></span>
+              <div><div class="flow-node__title">AI polishes</div><div class="flow-node__sub">filler &amp; grammar</div></div>
+            </div>
+            <div class="flow-arrow"><span><svg width="18" height="18"><use href="#i-chevron" /></svg></span></div>
+            <div class="flow-node">
+              <span class="flow-node__icon"><svg width="19" height="19"><use href="#i-check" /></svg></span>
+              <div><div class="flow-node__title">Text inserted</div><div class="flow-node__sub">at your cursor</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="flow-cloud">
+          <span class="flow-cloud__icon"><svg width="15" height="15"><use href="#i-globe" /></svg></span>
+          <span class="flow-cloud__note"><span class="flow-cloud__strike">the cloud</span> — never touched</span>
+        </div>
+      </div>
+
+      <!-- trust cards -->
+      <div class="reveal trust">
+        <div class="trust-card">
+          <span class="trust-card__icon"><svg width="20" height="20"><use href="#i-shield" /></svg></span>
+          <div class="trust-card__title">Processed on-device</div>
+          <p class="trust-card__body">Whisper runs on your CPU or GPU. Audio is transcribed in memory and discarded — never written to disk, never sent anywhere.</p>
+        </div>
+        <div class="trust-card">
+          <span class="trust-card__icon"><svg width="20" height="20"><use href="#i-command" /></svg></span>
+          <div class="trust-card__title">No account, no cloud</div>
+          <p class="trust-card__body">No sign-up, no sync, no telemetry, no background phone-home. Download it, grant mic access, and start talking.</p>
+        </div>
+        <div class="trust-card">
+          <span class="trust-card__icon"><svg width="20" height="20"><use href="#i-chip" /></svg></span>
+          <div class="trust-card__title">Open source, forever</div>
+          <p class="trust-card__body">Every line is auditable on GitHub. MIT-licensed and free — no trial, no seat count, no paywall waiting at the end.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ WHISPER MODEL LINEUP ══════════════════ -->
+  <section class="section models" id="models">
+    <div class="lwrap lwrap--models">
+      <div class="reveal">
+        <div class="eyebrow"><span class="eyebrow__dot"></span>Whisper, your way</div>
+        <div class="models__intro">
+          <h2 class="headline">From instant<br />to flawless.</h2>
+          <p class="lede">Murmur ships every OpenAI Whisper size. Pick the one that fits your machine — smaller is faster, larger is sharper. They all run entirely on-device.</p>
+        </div>
+      </div>
+
+      <div class="reveal models-table">
+        <div class="mrow mrow--head">
+          <span>Model</span><span>Download</span><span>Speed</span><span>Accuracy</span><span>Best for</span>
+        </div>
+        <div class="mrow mrow--body">
+          <span class="mrow__id">tiny</span>
+          <span class="mrow__mono">75 MB</span>
+          <span class="mrow__mono">32× realtime</span>
+          <span class="acc"><span class="on"></span><span class="on"></span><span></span><span></span><span></span></span>
+          <span class="mrow__use"><span>Quick notes</span></span>
+        </div>
+        <div class="mrow mrow--body">
+          <span class="mrow__id">base</span>
+          <span class="mrow__mono">142 MB</span>
+          <span class="mrow__mono">16× realtime</span>
+          <span class="acc"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span>
+          <span class="mrow__use"><span>Everyday chat</span></span>
+        </div>
+        <div class="mrow mrow--body">
+          <span class="mrow__id">small</span>
+          <span class="mrow__mono">466 MB</span>
+          <span class="mrow__mono">6× realtime</span>
+          <span class="acc"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span>
+          <span class="mrow__use"><span>Balanced</span></span>
+        </div>
+        <div class="mrow mrow--body">
+          <span class="mrow__id">medium</span>
+          <span class="mrow__mono">1.5 GB</span>
+          <span class="mrow__mono">2× realtime</span>
+          <span class="acc"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span></span>
+          <span class="mrow__use"><span>High accuracy</span></span>
+        </div>
+        <div class="mrow mrow--body mrow--rec">
+          <span class="mrow__id">large-v3</span>
+          <span class="mrow__mono">2.9 GB</span>
+          <span class="mrow__mono">1× realtime</span>
+          <span class="acc"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></span>
+          <span class="mrow__use"><span>Best quality</span><span class="badge">Default</span></span>
+        </div>
+        <div class="models-foot">
+          <span class="models-foot__ok"><svg width="15" height="15"><use href="#i-shield" /></svg><span>Audio never leaves your device.</span></span>
+          <span class="models-foot__note">Runs on CPU or GPU · switch models any time</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ DESKTOP APP SCREENSHOTS ══════════════════ -->
+  <section class="section screens" id="app">
+    <div class="lwrap">
+      <div class="reveal centered-head">
+        <div class="eyebrow eyebrow--center"><span class="eyebrow__dot"></span>The desktop app</div>
+        <h2 class="headline headline--center" style="max-width:760px">A quiet home for everything you've said.</h2>
+        <p class="lede lede--center" style="max-width:560px">Beyond the floating overlay, Murmur is a full desktop app — history, stats and every setting — native on macOS, Windows and Linux.</p>
+      </div>
+
+      <div class="reveal shots">
+        <!-- Home -->
+        <div>
+          <div class="shot-frame" data-fit>
+            <div class="shot-window">
+              <div class="app">
+                <div class="app__bar"><span class="app__lights"><span style="background:#e06c5a"></span><span style="background:#e3b341"></span><span style="background:#5bb574"></span></span></div>
+                <aside class="app__side">
+                  <div class="app__brand"><span class="app__brand-mark"><svg width="16" height="16"><use href="#i-waveDot" /></svg></span><span class="app__brand-name">Murmur</span></div>
+                  <nav class="app__nav">
+                    <div class="app__navitem on"><svg width="17" height="17"><use href="#i-clock" /></svg>Home</div>
+                    <div class="app__navitem"><svg width="17" height="17"><use href="#i-sliders" /></svg>Settings</div>
+                  </nav>
+                  <div class="app__sidefoot"><svg width="13" height="13"><use href="#i-shield" /></svg>on-device</div>
+                </aside>
+                <div class="app__main">
+                  <div class="app__greet">Good morning, Alex.</div>
+                  <div class="app__sub">You've dictated 12 times today.</div>
+                  <div class="app__stats">
+                    <div class="app__stat"><div class="app__stat-k">Words today</div><div class="app__stat-v">1,248</div></div>
+                    <div class="app__stat"><div class="app__stat-k">Avg WPM</div><div class="app__stat-v">142</div></div>
+                    <div class="app__stat"><div class="app__stat-k">Day streak</div><div class="app__stat-v">7<em>days</em></div></div>
+                  </div>
+                  <div class="app__seclabel"><span>Recent dictations</span></div>
+                  <div class="app__search"><svg width="15" height="15"><use href="#i-search" /></svg>Search transcripts</div>
+                  <div class="app__hist">
+                    <div class="app__hrow"><div class="app__hrow-body"><div class="app__hrow-text">Let's move the launch to Friday and send the recap notes tonight.</div><div class="app__hrow-meta">2m ago · 12 words</div></div><span class="app__hrow-copy"><svg width="15" height="15"><use href="#i-copy" /></svg></span></div>
+                    <div class="app__hrow"><div class="app__hrow-body"><div class="app__hrow-text">Can you review the pull request before standup? I left two comments.</div><div class="app__hrow-meta">18m ago · 13 words</div></div><span class="app__hrow-copy"><svg width="15" height="15"><use href="#i-copy" /></svg></span></div>
+                    <div class="app__hrow"><div class="app__hrow-body"><div class="app__hrow-text">Remember to book the venue and confirm catering by end of week.</div><div class="app__hrow-meta">1h ago · 12 words</div></div><span class="app__hrow-copy"><svg width="15" height="15"><use href="#i-copy" /></svg></span></div>
+                    <div class="app__hrow"><div class="app__hrow-body"><div class="app__hrow-text">Draft a reply to the design team about the new onboarding flow.</div><div class="app__hrow-meta">3h ago · 12 words</div></div><span class="app__hrow-copy"><svg width="15" height="15"><use href="#i-copy" /></svg></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="shot-cap">
+            <div class="shot-cap__title">Home</div>
+            <div class="shot-cap__desc">Every dictation, searchable — with words saved and your streak.</div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div>
+          <div class="shot-frame" data-fit>
+            <div class="shot-window">
+              <div class="app">
+                <div class="app__bar"><span class="app__lights"><span style="background:#e06c5a"></span><span style="background:#e3b341"></span><span style="background:#5bb574"></span></span></div>
+                <aside class="app__side">
+                  <div class="app__brand"><span class="app__brand-mark"><svg width="16" height="16"><use href="#i-waveDot" /></svg></span><span class="app__brand-name">Murmur</span></div>
+                  <nav class="app__nav">
+                    <div class="app__navitem"><svg width="17" height="17"><use href="#i-clock" /></svg>Home</div>
+                    <div class="app__navitem on"><svg width="17" height="17"><use href="#i-sliders" /></svg>Settings</div>
+                  </nav>
+                  <div class="app__sidefoot"><svg width="13" height="13"><use href="#i-shield" /></svg>on-device</div>
+                </aside>
+                <div class="app__main">
+                  <div class="app__h2">Voice &amp; model</div>
+                  <div class="app__sub">All processing happens on this device.</div>
+                  <div class="app__card">
+                    <div class="app__field">
+                      <div><div class="app__field-k">Microphone</div><div class="app__field-h">Input device for dictation</div></div>
+                      <span class="app__control"><svg width="14" height="14"><use href="#i-mic" /></svg>MacBook Pro Mic<svg width="14" height="14"><use href="#i-chevron" /></svg></span>
+                    </div>
+                    <div class="app__field">
+                      <div><div class="app__field-k">Hotkey</div><div class="app__field-h">Hold to talk</div></div>
+                      <span class="app__kbd">⌥ Space</span>
+                    </div>
+                    <div class="app__field">
+                      <div><div class="app__field-k">Language</div><div class="app__field-h">Auto-detect on by default</div></div>
+                      <span class="app__control"><svg width="14" height="14"><use href="#i-globe" /></svg>English<svg width="14" height="14"><use href="#i-chevron" /></svg></span>
+                    </div>
+                  </div>
+                  <div class="app__seclabel" style="margin-top:24px"><span>Transcription model</span></div>
+                  <div class="app__models">
+                    <div class="app__model"><span class="app__model-radio"></span><span class="app__model-id">tiny</span><span class="app__model-meta">75 MB · 32×</span></div>
+                    <div class="app__model"><span class="app__model-radio"></span><span class="app__model-id">small</span><span class="app__model-meta">466 MB · 6×</span></div>
+                    <div class="app__model"><span class="app__model-radio"></span><span class="app__model-id">medium</span><span class="app__model-meta">1.5 GB · 2×</span></div>
+                    <div class="app__model on"><span class="app__model-radio"></span><span class="app__model-id">large-v3</span><span class="app__model-meta">2.9 GB · best quality</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="shot-cap">
+            <div class="shot-cap__title">Voice &amp; model</div>
+            <div class="shot-cap__desc">Mic, hotkey, language and the Whisper picker, all on-device.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ══════════════════ CLOSING CTA + FOOTER (dark bookend) ══════════════════ -->
+<section class="section closing" id="download" data-theme="dark">
+  <div class="closing__wash"></div>
+  <div class="lwrap lwrap--cta closing__inner">
+    <div class="reveal" style="display:flex;flex-direction:column;align-items:center">
+      <div class="closing__widget">
+        <div class="pill-loop">
+          <div class="pill-loop__glow"></div>
+          <div class="pill" data-pill data-width="280"></div>
+        </div>
+      </div>
+      <h2 class="closing__h2">Stop typing.<br />Start talking.</h2>
+      <p class="closing__lede">Murmur installs in under a minute and works in every app you already use. No account, no cloud, no catch — just hold the key and speak.</p>
+      <div class="dl-cluster dl-cluster--center">
+        <div class="dl-row">
+          <a class="btn btn-primary" href="https://github.com/kurenn/murmur/releases" target="_blank" rel="noopener">
+            <span style="display:inline-flex;margin-right:-2px"><svg width="16" height="16"><use href="#i-chevron" /></svg></span>
+            Download for macOS
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/kurenn/murmur/releases" target="_blank" rel="noopener">Windows &amp; Linux</a>
+        </div>
+        <div class="dl-meta">
+          <span class="dl-meta__ok"><svg width="13" height="13"><use href="#i-shield" /></svg><span>Free &amp; open source</span></span>
+          <span class="dl-meta__sep">·</span>
+          <span>macOS 12+ · Apple Silicon &amp; Intel</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="lwrap lwrap--nav">
+      <div class="footer__grid">
+        <div class="footer__about">
+          <a class="wordmark" href="#top">
+            <span class="wordmark__mark"><svg width="17" height="17"><use href="#i-waveDot" /></svg></span>
+            <span class="wordmark__name">Murmur</span>
+          </a>
+          <p class="footer__tag">Open-source, on-device voice-to-text for people who think out loud. Transcribed by Whisper, polished by AI, never uploaded.</p>
+        </div>
+        <div class="footer__cols">
+          <div class="footer__col">
+            <div class="footer__col-h">Product</div>
+            <a class="pill-link" href="#download">Download</a>
+            <a class="pill-link" href="#privacy">Privacy</a>
+            <a class="pill-link" href="#models">Models</a>
+            <a class="pill-link" href="#app">The app</a>
+          </div>
+          <div class="footer__col">
+            <div class="footer__col-h">Project</div>
+            <a class="pill-link" href="https://github.com/kurenn/murmur" target="_blank" rel="noopener">View source</a>
+            <a class="pill-link" href="https://github.com/kurenn/murmur#readme" target="_blank" rel="noopener">Documentation</a>
+            <a class="pill-link" href="https://github.com/kurenn/murmur/releases" target="_blank" rel="noopener">Changelog</a>
+            <a class="pill-link" href="https://github.com/kurenn/murmur/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <span>© 2026 Murmur · MIT licensed</span>
+        <span><svg width="13" height="13"><use href="#i-shield" /></svg>openai/whisper · runs on-device</span>
+      </div>
+    </div>
+  </footer>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
