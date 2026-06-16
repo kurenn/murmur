@@ -93,13 +93,32 @@ and the AI cleanup pass run on the one machine you control:
 
 Grab the latest installer from the **[Releases page](https://github.com/kurenn/murmur/releases)**.
 
-| OS          | File                  | Notes                                                                             |
-| ----------- | --------------------- | --------------------------------------------------------------------------------- |
-| **macOS**   | `.dmg` (universal)    | Apple Silicon + Intel. Unsigned for now → **right-click → Open** on first launch. |
-| **Windows** | `.msi` or `.exe`      | Requires WebView2 (preinstalled on Windows 10/11).                                |
-| **Linux**   | `.AppImage` or `.deb` | AppImage: `chmod +x Murmur*.AppImage && ./Murmur*.AppImage`.                       |
+### macOS
 
-On first launch, grant **Microphone** access (and **Accessibility** on macOS, so Murmur can paste into other apps).
+**One-liner** — downloads the latest universal build, installs it, and clears the Gatekeeper flag:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kurenn/murmur/main/scripts/install-macos.sh | bash
+```
+
+Or install the `.dmg` manually. Murmur is **not notarized** by Apple (no paid Developer account), so macOS
+blocks the unsigned app on first open ("Apple could not verify…" / "will damage your computer"). It's safe —
+allow it **once**:
+
+- **System Settings → Privacy & Security** → click **Open Anyway** next to the Murmur message, **or**
+- run `xattr -dr com.apple.quarantine /Applications/Murmur.app` in Terminal.
+
+> On macOS 15+ the old _right-click → Open_ no longer bypasses Gatekeeper — use **Open Anyway** or the command above.
+
+### Windows & Linux
+
+| OS          | File                  | Notes                                                       |
+| ----------- | --------------------- | ----------------------------------------------------------- |
+| **Windows** | `.msi` or `.exe`      | Requires WebView2 (preinstalled on Windows 10/11).          |
+| **Linux**   | `.AppImage` or `.deb` | AppImage: `chmod +x Murmur*.AppImage && ./Murmur*.AppImage`. |
+
+On first launch, grant **Microphone** access — and on macOS, **Accessibility** (to paste at your cursor) and
+**Input Monitoring** (for the fn-key trigger).
 
 ## 🔨 Build from source
 

@@ -90,7 +90,11 @@ jobs:
           releaseBody: |
             Local, on-device voice-to-text. Download the installer for your OS below.
 
-            - **macOS** — `.dmg` (universal: Apple Silicon + Intel). Unsigned: right-click → Open on first launch.
+            - **macOS** — `.dmg` (universal: Apple Silicon + Intel). Not notarized, so macOS blocks it on first open. Easiest install — one-liner that handles Gatekeeper for you:
+              ```
+              curl -fsSL https://raw.githubusercontent.com/kurenn/murmur/main/scripts/install-macos.sh | bash
+              ```
+              Or install the `.dmg` and allow it once via **System Settings → Privacy & Security → Open Anyway** (or `xattr -dr com.apple.quarantine /Applications/Murmur.app`). On macOS 15+ right-click → Open no longer works.
             - **Windows** — `.msi` or `.exe`. Requires WebView2 (preinstalled on Windows 10/11).
             - **Linux** — `.AppImage` (portable) or `.deb`.
 
