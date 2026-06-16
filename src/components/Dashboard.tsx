@@ -570,6 +570,60 @@ export function codeToKey(code: string): string | null {
 
 /** Render an accelerator like "Alt+Space" as kbd glyphs, and capture a new chord
  * on click. Persists via onRebind → config (Rust re-registers the global shortcut). */
+/** Prompt to grant Input Monitoring (required for the fn-key trigger on macOS).
+ *  Renders nothing once granted or on non-macOS (the command returns true). */
+function InputMonitoringNotice() {
+  const [trusted, setTrusted] = useState(true);
+  const check = async () => {
+    if (!isTauri) return;
+    const { invoke } = await import("@tauri-apps/api/core");
+    setTrusted(await invoke<boolean>("input_monitoring_trusted"));
+  };
+  useEffect(() => {
+    check().catch(() => {});
+  }, []);
+  if (trusted) return null;
+  const grant = async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("request_input_monitoring");
+    setTimeout(() => check().catch(() => {}), 1500);
+  };
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        background: "var(--accent-soft)",
+        border: "0.5px solid color-mix(in oklch, var(--accent) 35%, transparent)",
+        borderRadius: 10,
+        padding: "11px 13px",
+      }}
+    >
+      <div style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
+        Grant <b style={{ color: "var(--ink)" }}>Input Monitoring</b> so Murmur can detect the fn key, then restart the app.
+      </div>
+      <button
+        onClick={grant}
+        style={{
+          flex: "0 0 auto",
+          border: "0.5px solid var(--line)",
+          background: "var(--surface)",
+          color: "var(--ink)",
+          borderRadius: 8,
+          padding: "6px 12px",
+          fontSize: 12.5,
+          fontWeight: 600,
+          cursor: "pointer",
+          fontFamily: "var(--font-ui)",
+        }}
+      >
+        Open settings
+      </button>
+    </div>
+  );
+}
+
 function Hotkey({ accelerator, onRebind }: { accelerator: string; onRebind: (accel: string) => void }) {
   const [recording, setRecording] = useState(false);
 
@@ -831,9 +885,40 @@ function Settings() {
           <Card title="Activation" icon="keyboard">
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>Dictation hotkey</div>
-                <Hotkey accelerator={cfg.hotkey} onRebind={(a) => save({ hotkey: a })} />
+                <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>Trigger</div>
+                <Seg
+                  options={["Fn key", "Custom shortcut"]}
+                  value={cfg.triggerKey === "Hotkey" ? "Custom shortcut" : "Fn key"}
+                  onChange={(v) => save({ triggerKey: v === "Custom shortcut" ? "Hotkey" : "Fn" })}
+                />
               </div>
+              {cfg.triggerKey === "Hotkey" ? (
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>Dictation hotkey</div>
+                  <Hotkey accelerator={cfg.hotkey} onRebind={(a) => save({ hotkey: a })} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                    Hold the{" "}
+                    <kbd
+                      style={{
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 11.5,
+                        background: "var(--surface-2)",
+                        border: "0.5px solid var(--line)",
+                        borderRadius: 6,
+                        padding: "1px 6px",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      fn
+                    </kbd>{" "}
+                    (Globe) key to dictate.
+                  </div>
+                  <InputMonitoringNotice />
+                </>
+              )}
               <div>
                 <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>Trigger mode</div>
                 <Seg

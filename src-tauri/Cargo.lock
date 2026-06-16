@@ -2397,9 +2397,11 @@ dependencies = [
 
 [[package]]
 name = "murmur"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arboard",
+ "core-foundation",
+ "core-graphics",
  "cpal",
  "enigo",
  "futures-util",

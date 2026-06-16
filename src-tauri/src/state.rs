@@ -75,6 +75,12 @@ pub struct AppState {
     pub trigger_mode: Mutex<TriggerMode>,
     /// Currently registered global hotkey (compared in the shortcut handler).
     pub hotkey: Mutex<Shortcut>,
+    /// True when the fn (Globe) key is the active trigger (macOS). The fn-key
+    /// listener only fires while this is set, and the global shortcut is left
+    /// unregistered. See lib.rs `apply_trigger_key`.
+    pub use_fn_trigger: AtomicBool,
+    /// Whether the macOS fn-key listener thread has been spawned (spawn-once).
+    pub fn_listener_started: AtomicBool,
     /// Last-applied overlay shape, so we only resize/reposition on change.
     pub overlay_shape: Mutex<String>,
     /// Display name of the transcription language (e.g. "English", "Español").
@@ -99,6 +105,8 @@ impl Default for AppState {
             transcribe: Mutex::new(RemoteTranscribe::default()),
             trigger_mode: Mutex::new(TriggerMode::default()),
             hotkey: Mutex::new(Shortcut::new(Some(Modifiers::ALT), Code::Space)),
+            use_fn_trigger: AtomicBool::new(false),
+            fn_listener_started: AtomicBool::new(false),
             overlay_shape: Mutex::new("pill".to_string()),
             language: Mutex::new("English".to_string()),
             auto_detect_language: AtomicBool::new(true),

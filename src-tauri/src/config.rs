@@ -50,8 +50,12 @@ pub struct Config {
     pub compute: String,
     /// "Push-to-talk" | "Toggle"
     pub trigger_mode: String,
-    /// global-shortcut accelerator, e.g. "Alt+Space"
+    /// global-shortcut accelerator, e.g. "Alt+Space" (used when trigger_key == "Hotkey")
     pub hotkey: String,
+    /// What fires dictation: "Fn" (hold the Globe/fn key, macOS) or "Hotkey"
+    /// (the `hotkey` accelerator). Defaults to "Fn" — fn is captured by a
+    /// low-level listener, unlike the flaky global-shortcut path.
+    pub trigger_key: String,
     /// "pill" | "orb" | "bar"
     pub overlay_shape: String,
     pub auto_detect_language: bool,
@@ -72,6 +76,7 @@ impl Default for Config {
             compute: "GPU".into(),
             trigger_mode: "Push-to-talk".into(),
             hotkey: "Alt+Space".into(),
+            trigger_key: "Fn".into(),
             overlay_shape: "pill".into(),
             auto_detect_language: true,
             language: "English".into(),

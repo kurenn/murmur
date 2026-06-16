@@ -69,6 +69,7 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
   const [downloaded, setDownloaded] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [accessOk, setAccessOk] = useState(false);
+  const [inputMonOk, setInputMonOk] = useState(false);
   const [micDone, setMicDone] = useState(false);
 
   // Reflect real download/permission state when entering step 2 or switching model.
@@ -78,6 +79,7 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
       const { invoke } = await import("@tauri-apps/api/core");
       setDownloaded(await invoke<boolean>("model_downloaded", { model }));
       setAccessOk(await invoke<boolean>("accessibility_trusted"));
+      setInputMonOk(await invoke<boolean>("input_monitoring_trusted"));
     })().catch(() => {});
   }, [step, model]);
 
@@ -121,6 +123,16 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("request_accessibility");
     setTimeout(async () => setAccessOk(await invoke<boolean>("accessibility_trusted")), 1200);
+  };
+
+  const grantInputMon = async () => {
+    if (!isTauri) {
+      setInputMonOk(true);
+      return;
+    }
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("request_input_monitoring");
+    setTimeout(async () => setInputMonOk(await invoke<boolean>("input_monitoring_trusted")), 1500);
   };
 
   const finish = () => onDone(name.trim());
@@ -241,6 +253,16 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
                   <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Grant Accessibility so Murmur can type at your cursor.</div>
                 </div>
                 {accessOk ? <DoneBadge label="Granted" /> : <button onClick={grantAccess} style={enableBtn}>Enable</button>}
+              </div>
+
+              {/* input monitoring (fn-key trigger) */}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, background: "var(--surface)", border: "0.5px solid var(--line)", borderRadius: "var(--radius)", padding: 16, marginTop: 12 }}>
+                <span style={{ width: 32, height: 32, flex: "0 0 auto", borderRadius: "50%", background: "var(--accent-soft)", color: "var(--accent)", display: "grid", placeItems: "center" }}>{Icons.keyboard({ size: 16 })}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>fn key trigger</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Grant Input Monitoring so holding the fn key starts dictation.</div>
+                </div>
+                {inputMonOk ? <DoneBadge label="Granted" /> : <button onClick={grantInputMon} style={enableBtn}>Enable</button>}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", marginTop: 24 }}>

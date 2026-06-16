@@ -1,5 +1,7 @@
 mod audio;
 mod config;
+#[cfg(target_os = "macos")]
+mod fnkey;
 mod history;
 mod inject;
 mod polish;
@@ -230,7 +232,7 @@ fn set_config(app: AppHandle, config: config::Config) -> Result<(), String> {
     *st.language.lock().unwrap() = config.language.clone();
     st.auto_detect_language
         .store(config.auto_detect_language, Ordering::Relaxed);
-    apply_hotkey(&app, &config.hotkey);
+    apply_trigger_key(&app, &config.trigger_key, &config.hotkey);
 
     // Reconfigure the overlay window only when its shape actually changed.
     {
@@ -268,25 +270,6 @@ async fn health_check_remote(endpoint: String, api_key: String) -> Result<String
         Ok("ok".into())
     } else {
         Err(format!("server returned {}", resp.status()))
-    }
-}
-
-/// Re-register the global hotkey from an accelerator string ("Alt+Space").
-fn apply_hotkey(app: &AppHandle, accelerator: &str) {
-    let Ok(new) = Shortcut::from_str(accelerator) else {
-        eprintln!("[hotkey] invalid accelerator: {accelerator}");
-        return;
-    };
-    let st = app.state::<AppState>();
-    let current = *st.hotkey.lock().unwrap();
-    if new == current {
-        return;
-    }
-    let gs = app.global_shortcut();
-    let _ = gs.unregister(current);
-    match gs.register(new) {
-        Ok(()) => *st.hotkey.lock().unwrap() = new,
-        Err(e) => eprintln!("[hotkey] failed to register {accelerator}: {e}"),
     }
 }
 
@@ -392,17 +375,38 @@ fn request_accessibility() -> bool {
     inject::prompt_accessibility()
 }
 
-/// The global-shortcut handler: dispatches on the configured hotkey + trigger mode.
-fn on_shortcut(app: &AppHandle, sc: &Shortcut, event_state: ShortcutState) {
-    let st = app.state::<AppState>();
-    if *sc != *st.hotkey.lock().unwrap() {
-        return;
+/// Whether Input Monitoring is granted — required for the fn-key trigger (macOS).
+/// Always true on other platforms (they use the global-shortcut hotkey instead).
+#[tauri::command]
+fn input_monitoring_trusted() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        fnkey::access_granted()
     }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
+/// Open System Settings → Privacy & Security → Input Monitoring (macOS).
+#[tauri::command]
+fn request_input_monitoring() {
+    #[cfg(target_os = "macos")]
+    fnkey::open_settings();
+}
+
+/// Translate a trigger key/button down (`pressed=true`) or up into a dictation
+/// transition, honoring the current trigger mode. Shared by the global-shortcut
+/// handler and the macOS fn-key listener. Must run on the main thread (window
+/// ops); callers off the main thread marshal via `run_on_main_thread`.
+pub(crate) fn handle_trigger(app: &AppHandle, pressed: bool) {
+    let st = app.state::<AppState>();
     let mode = *st.trigger_mode.lock().unwrap();
-    match (mode, event_state) {
-        (TriggerMode::PushToTalk, ShortcutState::Pressed) => start_dictation(app),
-        (TriggerMode::PushToTalk, ShortcutState::Released) => stop_dictation(app),
-        (TriggerMode::Toggle, ShortcutState::Pressed) => {
+    match (mode, pressed) {
+        (TriggerMode::PushToTalk, true) => start_dictation(app),
+        (TriggerMode::PushToTalk, false) => stop_dictation(app),
+        (TriggerMode::Toggle, true) => {
             let listening = *st.current.lock().unwrap() == DictationState::Listening;
             if listening {
                 stop_dictation(app);
@@ -410,7 +414,49 @@ fn on_shortcut(app: &AppHandle, sc: &Shortcut, event_state: ShortcutState) {
                 start_dictation(app);
             }
         }
-        (TriggerMode::Toggle, ShortcutState::Released) => {}
+        (TriggerMode::Toggle, false) => {}
+    }
+}
+
+/// The global-shortcut handler: fires only for the registered hotkey, and only
+/// while the Fn trigger is not active.
+fn on_shortcut(app: &AppHandle, sc: &Shortcut, event_state: ShortcutState) {
+    let st = app.state::<AppState>();
+    if st.use_fn_trigger.load(Ordering::Relaxed) || *sc != *st.hotkey.lock().unwrap() {
+        return;
+    }
+    handle_trigger(app, event_state == ShortcutState::Pressed);
+}
+
+/// Apply the trigger-key choice ("Fn" vs "Hotkey"). On macOS, "Fn" uses the
+/// low-level fn-key listener and leaves the global shortcut unregistered; any
+/// other value (or any non-macOS platform) uses the global-shortcut `hotkey`.
+fn apply_trigger_key(app: &AppHandle, trigger_key: &str, hotkey: &str) {
+    let use_fn = cfg!(target_os = "macos") && trigger_key.eq_ignore_ascii_case("fn");
+    let st = app.state::<AppState>();
+    st.use_fn_trigger.store(use_fn, Ordering::Relaxed);
+
+    if use_fn {
+        // Stop the global shortcut from also firing, then make sure the fn
+        // listener is running (spawn-once).
+        let current = *st.hotkey.lock().unwrap();
+        let _ = app.global_shortcut().unregister(current);
+        #[cfg(target_os = "macos")]
+        if !st.fn_listener_started.swap(true, Ordering::Relaxed) {
+            fnkey::spawn_listener(app.clone());
+        }
+    } else {
+        // Hotkey mode: unregister whatever was active, then register the
+        // configured accelerator (handles both first-time and live edits).
+        let gs = app.global_shortcut();
+        let _ = gs.unregister(*st.hotkey.lock().unwrap());
+        match Shortcut::from_str(hotkey) {
+            Ok(new) => match gs.register(new) {
+                Ok(()) => *st.hotkey.lock().unwrap() = new,
+                Err(e) => eprintln!("[hotkey] failed to register {hotkey}: {e}"),
+            },
+            Err(_) => eprintln!("[hotkey] invalid accelerator: {hotkey}"),
+        }
     }
 }
 
@@ -435,7 +481,9 @@ pub fn run() {
             request_microphone,
             health_check_remote,
             accessibility_trusted,
-            request_accessibility
+            request_accessibility,
+            input_monitoring_trusted,
+            request_input_monitoring
         ])
         .setup(|app| {
             // Hydrate live state from persisted config.
@@ -454,15 +502,13 @@ pub fn run() {
                 st.auto_detect_language
                     .store(cfg.auto_detect_language, Ordering::Relaxed);
 
-                // Register the configured hotkey.
+                // Seed the stored hotkey from config, then apply the trigger
+                // choice (Fn key listener vs global shortcut).
                 if let Ok(hk) = Shortcut::from_str(&cfg.hotkey) {
                     *st.hotkey.lock().unwrap() = hk;
                 }
-                let hk = *st.hotkey.lock().unwrap();
-                if let Err(e) = app.global_shortcut().register(hk) {
-                    eprintln!("[hotkey] failed to register {}: {e}", cfg.hotkey);
-                }
             }
+            apply_trigger_key(app.handle(), &cfg.trigger_key, &cfg.hotkey);
 
             // Overlay: click-through (never steals focus) + sized/frosted per shape.
             if let Some(overlay) = app.get_webview_window("overlay") {

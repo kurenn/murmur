@@ -1,6 +1,6 @@
 [package]
 name = "murmur"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -47,6 +47,10 @@ arboard = "3"
 [target.'cfg(target_os = "macos")'.dependencies]
 # Accessibility (AXIsProcessTrusted) check + prompt — required for synthetic input.
 macos-accessibility-client = "0.0.2"
+# fn (Globe) key trigger: a CGEventTap watches FlagsChanged for the fn key. The
+# global-shortcut system can't bind fn, so we drop to a low-level event tap.
+core-graphics = "0.25"
+core-foundation = "0.10"
 # On macOS, override the CPU-only whisper-rs with the Metal GPU backend.
 # CoreML is intentionally omitted (requires a generated CoreML model bundle).
 whisper-rs = { version = "0.16", features = ["metal"] }

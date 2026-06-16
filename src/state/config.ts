@@ -10,6 +10,8 @@ const inTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
 
 export type Compute = "CPU" | "GPU";
 export type TriggerMode = "Push-to-talk" | "Toggle";
+/** "Fn" → hold the Globe/fn key (macOS); "Hotkey" → the `hotkey` accelerator. */
+export type TriggerKey = "Fn" | "Hotkey";
 
 /** Remote Whisper server (OpenAI-compatible /v1/audio/transcriptions). */
 export interface RemoteTranscribe {
@@ -25,6 +27,8 @@ export interface AppConfig {
   model: string;
   compute: Compute;
   triggerMode: TriggerMode;
+  /** What fires dictation: "Fn" (hold the Globe/fn key, macOS) or "Hotkey" (the accelerator). */
+  triggerKey: TriggerKey;
   hotkey: string;
   overlayShape: OverlayShape;
   autoDetectLanguage: boolean;
@@ -43,6 +47,7 @@ export const CONFIG_DEFAULTS: AppConfig = {
   model: "base",
   compute: "GPU",
   triggerMode: "Push-to-talk",
+  triggerKey: "Fn",
   hotkey: "Alt+Space",
   overlayShape: "pill",
   autoDetectLanguage: true,
