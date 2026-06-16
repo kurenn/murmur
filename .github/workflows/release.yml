@@ -19,6 +19,10 @@ permissions:
 
 jobs:
   build:
+    # Empty => tauri-action only builds (no release). A tag push (or a dispatch
+    # with a tag) publishes/updates the matching GitHub Release.
+    env:
+      RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -80,10 +84,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Empty tagName => tauri-action only builds (no release). On a tag push
-          # it publishes/updates the matching GitHub Release with the installers.
-          tagName: ${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}
-          releaseName: 'Murmur ${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}'
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: Murmur ${{ env.RELEASE_TAG }}
           releaseBody: |
             Local, on-device voice-to-text. Download the installer for your OS below.
 
