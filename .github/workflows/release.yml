@@ -1,0 +1,108 @@
+name: Release
+
+# Builds the desktop app on each platform's native runner (cross-compiling a
+# Tauri + whisper.cpp app from one OS is not viable), then:
+#   · tag push `v*`     -> publishes a GitHub Release with every installer
+#   · manual dispatch   -> build-only validation; bundles uploaded as artifacts
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.1.1). Leave blank to build without releasing.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest        # universal: Apple Silicon + Intel
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+            args: --target universal-apple-darwin
+          - platform: ubuntu-22.04         # .deb + .AppImage
+            rust_targets: ''
+            args: ''
+          - platform: windows-latest       # .msi + NSIS .exe
+            rust_targets: ''
+            args: ''
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            patchelf \
+            build-essential \
+            curl wget file \
+            cmake clang libclang-dev
+
+      - name: Set LIBCLANG_PATH (Windows, for whisper-rs bindgen)
+        if: matrix.platform == 'windows-latest'
+        run: echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets }}
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build (and release on tag)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Empty tagName => tauri-action only builds (no release). On a tag push
+          # it publishes/updates the matching GitHub Release with the installers.
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}
+          releaseName: 'Murmur ${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}'
+          releaseBody: |
+            Local, on-device voice-to-text. Download the installer for your OS below.
+
+            - **macOS** — `.dmg` (universal: Apple Silicon + Intel). Unsigned: right-click → Open on first launch.
+            - **Windows** — `.msi` or `.exe`. Requires WebView2 (preinstalled on Windows 10/11).
+            - **Linux** — `.AppImage` (portable) or `.deb`.
+
+            Whisper models download on first use; `large-v3` is the default.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - name: Upload bundles as build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: murmur-${{ matrix.platform }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            src-tauri/target/release/bundle/**
+            src-tauri/target/*/release/bundle/**
