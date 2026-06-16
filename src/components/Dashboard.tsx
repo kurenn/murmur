@@ -6,6 +6,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Icons, type IconName } from "../design-system/icons";
 import { Waveform } from "../design-system/primitives";
 import { getConfig, isTauri, setConfig, type AppConfig } from "../state/config";
+import { appVersion, checkForUpdate, type PendingUpdate } from "../state/updater";
 
 const TRAFFIC = ["#e06c5a", "#e3b341", "#5bb574"];
 
@@ -825,6 +826,98 @@ const LANGS = ["English", "Español", "Français", "日本語", "Deutsch", "中�
 
 type ConnStatus = "idle" | "checking" | "ok" | "error";
 
+type UpdateStatus = "checking" | "available" | "uptodate" | "installing" | "error";
+
+/** Software-update card: auto-checks GitHub releases on mount, installs on request. */
+function UpdateCard() {
+  const [version, setVersion] = useState("");
+  const [status, setStatus] = useState<UpdateStatus>("checking");
+  const [pending, setPending] = useState<PendingUpdate | null>(null);
+  const [pct, setPct] = useState(0);
+
+  const check = async () => {
+    setStatus("checking");
+    try {
+      const u = await checkForUpdate();
+      if (u) {
+        setPending(u);
+        setStatus("available");
+      } else {
+        setStatus("uptodate");
+      }
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  useEffect(() => {
+    if (!isTauri) {
+      setStatus("uptodate");
+      return;
+    }
+    appVersion().then(setVersion).catch(() => {});
+    check().catch(() => {});
+  }, []);
+
+  const install = async () => {
+    if (!pending) return;
+    setStatus("installing");
+    try {
+      await pending.install(setPct); // relaunches the app on success
+    } catch {
+      setStatus("error");
+    }
+  };
+
+  const line =
+    status === "available"
+      ? `Update available — v${pending?.version}`
+      : status === "installing"
+        ? `Installing… ${pct}%`
+        : status === "checking"
+          ? "Checking for updates…"
+          : status === "error"
+            ? "Couldn't check — try again"
+            : "You're up to date";
+
+  const ghost: CSSProperties = {
+    flex: "0 0 auto",
+    border: "0.5px solid var(--line)",
+    background: "var(--surface)",
+    color: "var(--ink)",
+    borderRadius: 8,
+    padding: "6px 12px",
+    fontSize: 12.5,
+    fontWeight: 600,
+    cursor: "pointer",
+    fontFamily: "var(--font-ui)",
+  };
+
+  return (
+    <Card title="Software update" icon="bolt">
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, color: "var(--ink)" }}>{line}</div>
+          {version && (
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 3, fontFamily: "var(--font-mono)" }}>
+              Murmur v{version}
+            </div>
+          )}
+        </div>
+        {status === "available" ? (
+          <button onClick={install} style={{ ...ghost, background: "var(--ink)", color: "var(--bg)", border: "none" }}>
+            Install &amp; restart
+          </button>
+        ) : status === "installing" ? null : (
+          <button onClick={() => check().catch(() => {})} style={ghost}>
+            Check again
+          </button>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 function Settings() {
   const [cfg, setCfg] = useState<AppConfig | null>(null);
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
@@ -1181,6 +1274,8 @@ function Settings() {
               />
             </div>
           </Card>
+
+          <UpdateCard />
         </div>
       </div>
     </div>
