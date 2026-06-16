@@ -9,6 +9,19 @@ POST /v1/audio/transcriptions   →  {"text": "..."}
 GET  /health                    →  {"status": "ok", "model": "base"}
 ```
 
+## Quick start
+
+```bash
+cd server
+./install.sh                          # creates .venv + installs whisper & deps
+WHISPER_MODEL=small ./run.sh          # start the server (omit WHISPER_MODEL for 'base')
+```
+
+`install.sh` checks for Python 3 + ffmpeg, creates `.venv`, and installs
+`openai-whisper`, FastAPI and uvicorn. `run.sh` serves it on `0.0.0.0:8000`
+(set `PORT` to change). Then point Murmur → Settings → Remote server at
+`http://<this-machine-ip>:8000`. The manual steps below are the same thing by hand.
+
 ## 1. Prerequisites
 
 - **Python 3.9+**

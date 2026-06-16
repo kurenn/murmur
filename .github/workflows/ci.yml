@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    # macOS: Tauri + whisper-rs (whisper.cpp/Metal) build cleanly here without
+    # the GTK/WebKit system deps a Linux runner would need.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Type-check + build frontend
+        # `tsc && vite build` — typechecks and produces ../dist, which
+        # tauri-build's generate_context! needs when cargo compiles the crate.
+        run: npm run build
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: Backend tests
+        working-directory: src-tauri
+        run: cargo test --lib
