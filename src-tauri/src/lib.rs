@@ -527,7 +527,10 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit Murmur", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&show as &dyn IsMenuItem<_>, &quit])?;
             TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+                // Monochrome template icon — macOS renders it correctly in light
+                // and dark menu bars (icon_as_template), unlike the colorful app icon.
+                .icon(tauri::include_image!("icons/tray.png"))
+                .icon_as_template(true)
                 .menu(&menu)
                 .show_menu_on_left_click(true)
                 .tooltip("Murmur")
