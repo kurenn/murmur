@@ -1,0 +1,27 @@
+#!/bin/sh
+# Pre-commit gate — runs the test suite relevant to what's staged.
+#   backend changes   -> cargo test
+#   frontend changes  -> tsc + vitest
+# Skip in a pinch with:  git commit --no-verify
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+fail() {
+  echo "✗ pre-commit: $1 failed — fix it, or bypass with: git commit --no-verify"
+  exit 1
+}
+
+if echo "$staged" | grep -q '^src-tauri/'; then
+  echo "▶ cargo test (backend)"
+  (cd src-tauri && cargo test --lib --quiet) || fail "cargo test"
+fi
+
+if echo "$staged" | grep -qE '^(src/|package\.json|vite\.config\.ts|tsconfig)'; then
+  echo "▶ tsc + vitest (frontend)"
+  npx tsc --noEmit || fail "tsc"
+  npm test || fail "vitest"
+fi
+
+echo "✓ pre-commit checks passed"
