@@ -51,6 +51,7 @@ jobs:
             librsvg2-dev \
             libxdo-dev \
             libssl-dev \
+            libasound2-dev \
             libayatana-appindicator3-dev \
             patchelf \
             build-essential \
