@@ -727,6 +727,7 @@ function Settings() {
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [connStatus, setConnStatus] = useState<ConnStatus>("idle");
   const [connMsg, setConnMsg] = useState<string>("");
+  const [showServerHelp, setShowServerHelp] = useState(false);
 
   // Load config + which models are present + listen for download progress.
   useEffect(() => {
@@ -937,6 +938,34 @@ function Settings() {
                 </div>
               </div>
             )}
+
+            {/* Setup hint — how to stand up a server on the other machine. */}
+            <div style={{ marginTop: cfg.transcribe.enabled ? 14 : 12 }}>
+              <button
+                onClick={() => setShowServerHelp((v) => !v)}
+                style={{ border: "none", background: "transparent", color: "var(--accent)", cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12, fontWeight: 500, padding: 0, display: "inline-flex", alignItems: "center", gap: 4 }}
+              >
+                {showServerHelp ? "Hide setup" : "How do I run a server?"}
+                <span style={{ display: "inline-flex", transform: showServerHelp ? "rotate(180deg)" : "none", transition: "transform .15s" }}>{Icons.chevron({ size: 13 })}</span>
+              </button>
+              {showServerHelp && (
+                <div style={{ marginTop: 10, background: "var(--surface-2)", border: "0.5px solid var(--line)", borderRadius: "var(--radius-sm)", padding: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5, marginBottom: 8 }}>
+                    On the computer that will transcribe (needs Python 3 + ffmpeg):
+                  </div>
+                  <pre data-selectable style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--ink)", background: "var(--surface-3)", border: "0.5px solid var(--line)", borderRadius: 8, padding: "9px 11px", overflowX: "auto", lineHeight: 1.7 }}>
+{`cd server
+./install.sh     # installs whisper + deps
+./run.sh         # serves on port 8000`}
+                  </pre>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.5, marginTop: 8 }}>
+                    Then set the address above to{" "}
+                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-soft)" }}>http://&lt;that-machine-ip&gt;:8000</span>. Full guide in{" "}
+                    <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-soft)" }}>server/README.md</span>.
+                  </div>
+                </div>
+              )}
+            </div>
           </Card>
         </div>
 
