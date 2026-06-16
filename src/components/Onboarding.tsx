@@ -72,15 +72,21 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
   const [inputMonOk, setInputMonOk] = useState(false);
   const [micDone, setMicDone] = useState(false);
 
-  // Reflect real download/permission state when entering step 2 or switching model.
+  // Reflect real download/permission state on the setup step — on entry AND when
+  // the window regains focus (so granting a permission in System Settings flips
+  // the row to "Granted" without re-entering the step).
   useEffect(() => {
     if (!isTauri || step !== 1) return;
-    (async () => {
+    const refresh = async () => {
       const { invoke } = await import("@tauri-apps/api/core");
       setDownloaded(await invoke<boolean>("model_downloaded", { model }));
       setAccessOk(await invoke<boolean>("accessibility_trusted"));
       setInputMonOk(await invoke<boolean>("input_monitoring_trusted"));
-    })().catch(() => {});
+    };
+    refresh().catch(() => {});
+    const onFocus = () => refresh().catch(() => {});
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
   }, [step, model]);
 
   const downloadModel = async () => {

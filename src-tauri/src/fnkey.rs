@@ -63,10 +63,15 @@ pub fn spawn_listener(app: AppHandle) {
             CGEventTapOptions::ListenOnly,
             vec![CGEventType::FlagsChanged],
             move |_proxy, _etype, event| {
-                if event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) == KEYCODE_FN {
-                    let now_down = event
-                        .get_flags()
-                        .contains(CGEventFlags::CGEventFlagSecondaryFn);
+                let keycode = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE);
+                let secondary = event.get_flags().contains(CGEventFlags::CGEventFlagSecondaryFn);
+                // Opt-in diagnostic (run with MURMUR_FN_DEBUG=1): logs every modifier
+                // change so we can see what the fn (Globe) key emits on this machine.
+                if std::env::var_os("MURMUR_FN_DEBUG").is_some() {
+                    eprintln!("[fn-diag] flagsChanged keycode={keycode} secondaryFn={secondary}");
+                }
+                if keycode == KEYCODE_FN {
+                    let now_down = secondary;
                     if now_down != down.get() {
                         down.set(now_down);
                         eprintln!("[fn] {}", if now_down { "down" } else { "up" });

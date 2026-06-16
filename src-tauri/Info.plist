@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Required by macOS to access the microphone. Without this key the OS
+       silently denies mic access (feeds zeros) and never shows the prompt. -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Murmur uses your microphone to transcribe speech to text. Audio is processed on-device and never uploaded.</string>
+</dict>
+</plist>
