@@ -19,7 +19,7 @@ interface HistoryEntry {
 }
 
 /** Format a unix-seconds timestamp as the design's relative time. */
-function relTime(createdAt: number): string {
+export function relTime(createdAt: number): string {
   const diff = Math.max(0, Date.now() / 1000 - createdAt);
   if (diff < 60) return "just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
@@ -215,12 +215,12 @@ interface DictStats {
   streak: number;
 }
 
-function timeGreeting(): string {
+export function timeGreeting(): string {
   const h = new Date().getHours();
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
-function computeStats(entries: HistoryEntry[]): DictStats {
+export function computeStats(entries: HistoryEntry[]): DictStats {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const todaySec = start.getTime() / 1000;
@@ -544,7 +544,7 @@ const KEY_GLYPH: Record<string, string> = {
 
 /** Map a KeyboardEvent.code to a Tauri accelerator key token (or null if it's
  * not a usable main key). */
-function codeToKey(code: string): string | null {
+export function codeToKey(code: string): string | null {
   if (code === "Space") return "Space";
   let m: RegExpExecArray | null;
   if ((m = /^Key([A-Z])$/.exec(code))) return m[1];

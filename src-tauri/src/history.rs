@@ -69,3 +69,41 @@ pub fn wpm(words: usize, secs: f64) -> u32 {
     }
     ((words as f64) / (secs / 60.0)).round() as u32
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fmt_duration_formats_mss() {
+        assert_eq!(fmt_duration(0.0), "0:00");
+        assert_eq!(fmt_duration(7.4), "0:07");
+        assert_eq!(fmt_duration(83.0), "1:23");
+        assert_eq!(fmt_duration(-5.0), "0:00"); // clamps negatives
+    }
+
+    #[test]
+    fn wpm_basic_and_zero_guard() {
+        assert_eq!(wpm(120, 60.0), 120); // 120 words in 1 min
+        assert_eq!(wpm(30, 30.0), 60); // 30 words in 30s -> 60 wpm
+        assert_eq!(wpm(100, 0.0), 0); // no division by zero
+        assert_eq!(wpm(100, -1.0), 0);
+    }
+
+    #[test]
+    fn entry_serde_round_trip() {
+        let e = Entry {
+            text: "hi".into(),
+            words: 1,
+            source: "Dictation".into(),
+            wpm: 60,
+            duration: "0:01".into(),
+            created_at: 1_700_000_000,
+        };
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"created_at\":1700000000"));
+        let back: Entry = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.text, e.text);
+        assert_eq!(back.created_at, e.created_at);
+    }
+}

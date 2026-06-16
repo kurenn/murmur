@@ -548,3 +548,24 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::lang_code;
+
+    #[test]
+    fn lang_code_maps_ui_names_to_iso() {
+        assert_eq!(lang_code("English").as_deref(), Some("en"));
+        assert_eq!(lang_code("Español").as_deref(), Some("es"));
+        assert_eq!(lang_code("Français").as_deref(), Some("fr"));
+        assert_eq!(lang_code("日本語").as_deref(), Some("ja"));
+        assert_eq!(lang_code("Deutsch").as_deref(), Some("de"));
+        assert_eq!(lang_code("中文").as_deref(), Some("zh"));
+    }
+
+    #[test]
+    fn lang_code_unknown_is_none() {
+        assert_eq!(lang_code("Klingon"), None);
+        assert_eq!(lang_code(""), None);
+    }
+}

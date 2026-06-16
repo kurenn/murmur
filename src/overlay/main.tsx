@@ -7,6 +7,7 @@ import "../design-system/keyframes.css";
 import { applyTheme, THEME_DEFAULTS } from "../design-system/theme";
 import { Overlay } from "../components/Overlay";
 import { useDictation } from "../state/useDictation";
+import { useElapsedSeconds, fmtClock } from "../state/useElapsed";
 import { getConfig, isTauri, onConfigChanged } from "../state/config";
 import { installNativeBehaviors } from "../native";
 import type { OverlayShape } from "../state/dictation";
@@ -45,23 +46,11 @@ function OverlayApp() {
     return () => un?.();
   }, [forced]);
 
-  // Live recording timer: count up from 0:00 while listening (the listening
-  // state's right-meta). Resets whenever listening ends.
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (state !== "listening") {
-      setElapsed(0);
-      return;
-    }
-    const started = Date.now();
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 500);
-    return () => clearInterval(id);
-  }, [state]);
-
-  const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  // Live recording timer: counts up from 0:00 while listening.
+  const elapsed = useElapsedSeconds(state === "listening");
   const rightMeta =
     state === "listening"
-      ? fmtTime(elapsed)
+      ? fmtClock(elapsed)
       : state === "done" && result
         ? `${result.words} wds`
         : undefined;

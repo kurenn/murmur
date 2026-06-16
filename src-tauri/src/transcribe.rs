@@ -367,3 +367,65 @@ pub async fn transcribe_remote(
     let v: serde_json::Value = resp.json().await.map_err(|e| format!("decode: {e}"))?;
     Ok(v["text"].as_str().unwrap_or("").trim().to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_filename_format() {
+        assert_eq!(model_filename("base"), "ggml-base.bin");
+        assert_eq!(model_filename("large-v3"), "ggml-large-v3.bin");
+    }
+
+    #[test]
+    fn resample_16k_passthrough_and_empty() {
+        let s = vec![0.1, -0.2, 0.3];
+        assert_eq!(resample_to_16k(&s, 16_000), s);
+        assert!(resample_to_16k(&[], 44_100).is_empty());
+    }
+
+    #[test]
+    fn resample_box_halves_at_double_rate() {
+        let n = 1000usize;
+        let input: Vec<f32> = (0..n).map(|i| (i as f32 / n as f32) - 0.5).collect();
+        let out = resample_box(&input, 32_000); // ratio 2.0
+        assert!((out.len() as i64 - 500).abs() <= 1, "len {}", out.len());
+        assert!(out.iter().all(|&v| (-0.6..=0.6).contains(&v)));
+    }
+
+    #[test]
+    fn resample_to_16k_handles_odd_rate_without_panic() {
+        let input: Vec<f32> = (0..1234).map(|i| (i as f32).sin() * 0.5).collect();
+        assert!(!resample_to_16k(&input, 44_100).is_empty());
+    }
+
+    #[test]
+    fn wav_header_is_well_formed() {
+        let samples = vec![0.0f32; 8];
+        let wav = encode_wav_16k_mono(&samples);
+        assert_eq!(wav.len(), 44 + samples.len() * 2);
+        assert_eq!(&wav[0..4], b"RIFF");
+        assert_eq!(&wav[8..12], b"WAVE");
+        assert_eq!(&wav[12..16], b"fmt ");
+        assert_eq!(&wav[36..40], b"data");
+        assert_eq!(u16::from_le_bytes([wav[22], wav[23]]), 1); // mono
+        assert_eq!(u32::from_le_bytes([wav[24], wav[25], wav[26], wav[27]]), 16_000);
+        assert_eq!(u16::from_le_bytes([wav[34], wav[35]]), 16); // bit depth
+    }
+
+    #[test]
+    fn wav_clamps_out_of_range_samples() {
+        let wav = encode_wav_16k_mono(&[2.0, -2.0]);
+        assert_eq!(i16::from_le_bytes([wav[44], wav[45]]), i16::MAX);
+        assert_eq!(i16::from_le_bytes([wav[46], wav[47]]), -i16::MAX);
+    }
+
+    #[test]
+    fn remote_transcribe_default_is_local_off() {
+        let d = RemoteTranscribe::default();
+        assert!(!d.enabled);
+        assert_eq!(d.model, "whisper-1");
+        assert!(d.api_key.is_empty());
+    }
+}

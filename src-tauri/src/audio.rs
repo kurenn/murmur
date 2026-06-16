@@ -217,3 +217,25 @@ fn fill_bars(mono: &[f32], bars: &Bars) {
         *guard = out;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::to_mono;
+
+    #[test]
+    fn mono_passes_through() {
+        assert_eq!(to_mono(&[0.1f32, 0.2, 0.3], 1, |s| s), vec![0.1, 0.2, 0.3]);
+    }
+
+    #[test]
+    fn stereo_averages_per_frame() {
+        // interleaved L,R: (1,3) -> 2.0, (2,4) -> 3.0
+        assert_eq!(to_mono(&[1.0f32, 3.0, 2.0, 4.0], 2, |s| s), vec![2.0, 3.0]);
+    }
+
+    #[test]
+    fn conv_closure_is_applied() {
+        let out = to_mono(&[i16::MAX, 0], 1, |s| s as f32 / i16::MAX as f32);
+        assert_eq!(out, vec![1.0, 0.0]);
+    }
+}

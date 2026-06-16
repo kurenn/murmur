@@ -100,6 +100,44 @@ pub fn load(app: &AppHandle) -> Config {
         .unwrap_or_default()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_round_trips() {
+        let c = Config::default();
+        let json = serde_json::to_string(&c).unwrap();
+        let back: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.model, c.model);
+        assert_eq!(back.onboarded, c.onboarded);
+        assert_eq!(back.theme.dark, c.theme.dark);
+        assert_eq!(back.transcribe.enabled, c.transcribe.enabled);
+    }
+
+    #[test]
+    fn partial_json_fills_defaults() {
+        // Backward-compat: an old config.json missing newer fields must still load
+        // (every config migration relied on #[serde(default)]).
+        let json = r#"{ "model": "small", "userName": "Bob" }"#;
+        let c: Config = serde_json::from_str(json).unwrap();
+        assert_eq!(c.model, "small"); // provided
+        assert_eq!(c.user_name, "Bob"); // provided (camelCase)
+        assert!(!c.onboarded); // defaulted
+        assert_eq!(c.hotkey, "Alt+Space"); // defaulted
+        assert!(c.auto_detect_language); // defaulted
+        assert_eq!(c.theme.product_name, "Murmur"); // whole nested theme defaulted
+    }
+
+    #[test]
+    fn wire_keys_are_camel_case() {
+        let json = serde_json::to_string(&Config::default()).unwrap();
+        assert!(json.contains("\"userName\""), "{json}");
+        assert!(json.contains("\"autoDetectLanguage\""), "{json}");
+        assert!(json.contains("\"micDevice\""), "{json}");
+    }
+}
+
 pub fn save(app: &AppHandle, cfg: &Config) -> Result<(), String> {
     let p = config_path(app)?;
     let json = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;

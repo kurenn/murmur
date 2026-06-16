@@ -256,7 +256,11 @@ pub fn heuristic(raw: &str) -> String {
     let mut out = kept.join(" ");
     out = capitalize_sentences(&out);
 
-    // Ensure terminal punctuation.
+    // Ensure terminal punctuation — but drop a dangling comma first so we never
+    // produce a ",." (e.g. a dictation that collapsed to "Hello,").
+    if out.ends_with(',') {
+        out.pop();
+    }
     if !out.ends_with(['.', '!', '?', ':', ';']) {
         out.push('.');
     }
@@ -284,7 +288,7 @@ fn capitalize_sentences(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::heuristic;
+    use super::{bare, capitalize_sentences, clean_model_output, heuristic};
 
     #[test]
     fn cleans_fillers_dupes_casing_punct() {
@@ -296,11 +300,60 @@ mod tests {
         assert!(out.starts_with('S'), "not capitalized: {out}");
         assert!(out.ends_with('.'), "no terminal punctuation: {out}");
         assert!(out.contains('I'), "'i' not uppercased: {out}");
-        eprintln!("heuristic => {out}");
     }
 
     #[test]
     fn empty_stays_empty_ish() {
         assert_eq!(heuristic("   "), "");
+    }
+
+    #[test]
+    fn two_word_filler_phrases_removed() {
+        let out = heuristic("you know we should ship it i mean today");
+        assert!(!out.to_lowercase().contains("you know"), "{out}");
+        assert!(!out.to_lowercase().contains("i mean"), "{out}");
+        assert!(out.contains("ship it"), "{out}");
+    }
+
+    #[test]
+    fn collapsed_repeats_dont_double_punctuate() {
+        // Regression: "hello, hello, hello." used to collapse to "Hello,." — the
+        // dangling comma must not gain a trailing period.
+        assert_eq!(heuristic("hello hello hello"), "Hello.");
+        assert!(!heuristic("hello, hello, hello,").contains(",."), "double punct");
+    }
+
+    #[test]
+    fn keeps_existing_terminal_punctuation() {
+        assert!(heuristic("is this on?").ends_with('?'));
+        assert!(heuristic("stop!").ends_with('!'));
+    }
+
+    #[test]
+    fn i_is_uppercased_with_contractions() {
+        let out = heuristic("i think i'm late");
+        assert!(out.contains('I'), "{out}");
+        assert!(out.contains("I'm"), "{out}");
+        assert!(!out.contains(" i "), "lone i left lowercase: {out}");
+    }
+
+    #[test]
+    fn bare_strips_punct_and_lowercases() {
+        assert_eq!(bare("Hello,"), "hello");
+        assert_eq!(bare("\"WORLD\"!"), "world");
+        assert_eq!(bare("...um..."), "um");
+    }
+
+    #[test]
+    fn capitalize_sentences_starts_and_after_terminators() {
+        assert_eq!(capitalize_sentences("hello. there are two. fix it"), "Hello. There are two. Fix it");
+        assert_eq!(capitalize_sentences("yes! no? maybe"), "Yes! No? Maybe");
+    }
+
+    #[test]
+    fn clean_model_output_trims_and_unwraps_quotes() {
+        assert_eq!(clean_model_output("  hi there  "), "hi there");
+        assert_eq!(clean_model_output("\"quoted\""), "quoted");
+        assert_eq!(clean_model_output("no quotes"), "no quotes");
     }
 }

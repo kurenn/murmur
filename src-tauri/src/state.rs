@@ -144,3 +144,26 @@ pub fn emit_error(app: &AppHandle, message: &str) {
     let _ = app.emit_to("overlay", "dictation:error", payload.clone());
     let _ = app.emit_to("main", "dictation:error", payload);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DictationState, TriggerMode};
+
+    #[test]
+    fn dictation_state_serializes_lowercase() {
+        // Must stay in sync with the TS DictationState union (src/state/dictation.ts).
+        assert_eq!(serde_json::to_string(&DictationState::Idle).unwrap(), "\"idle\"");
+        assert_eq!(serde_json::to_string(&DictationState::Listening).unwrap(), "\"listening\"");
+        assert_eq!(serde_json::to_string(&DictationState::Transcribing).unwrap(), "\"transcribing\"");
+        assert_eq!(serde_json::to_string(&DictationState::Polishing).unwrap(), "\"polishing\"");
+        assert_eq!(serde_json::to_string(&DictationState::Done).unwrap(), "\"done\"");
+        assert_eq!(serde_json::to_string(&DictationState::Error).unwrap(), "\"error\"");
+    }
+
+    #[test]
+    fn trigger_mode_from_label() {
+        assert_eq!(TriggerMode::from_label("Toggle"), TriggerMode::Toggle);
+        assert_eq!(TriggerMode::from_label("Push-to-talk"), TriggerMode::PushToTalk);
+        assert_eq!(TriggerMode::from_label("whatever"), TriggerMode::PushToTalk);
+    }
+}
