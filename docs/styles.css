@@ -170,6 +170,24 @@ img { max-width: 100%; }
 .dl-meta__ok span { color: var(--ink-faint); }
 .dl-meta__sep { opacity: 0.5; }
 
+/* macOS one-line install — click-to-copy command (Homebrew-style) */
+.cmd {
+  display: inline-flex; align-items: center; gap: 11px; max-width: 100%;
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1;
+  background: var(--surface-2); border: 0.5px solid var(--line); border-radius: 12px;
+  padding: 14px 16px; cursor: pointer; box-shadow: var(--shadow-sm);
+  transition: border-color .14s ease, background .14s ease;
+}
+.cmd:hover { border-color: var(--ink-faint); }
+.cmd__prompt { color: var(--accent); flex: 0 0 auto; font-weight: 600; }
+.cmd__text { color: var(--ink); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.cmd__text::-webkit-scrollbar { display: none; }
+.cmd__copy { flex: 0 0 auto; display: inline-flex; color: var(--ink-faint); }
+.cmd__check-i { display: none; }
+.cmd.copied { border-color: color-mix(in oklch, var(--ok) 55%, transparent); }
+.cmd.copied .cmd__copy-i { display: none; }
+.cmd.copied .cmd__check-i { display: inline; color: var(--ok); }
+
 /* ── hero ─────────────────────────────────────────────────── */
 .hero {
   position: relative; min-height: 100vh; overflow: hidden;

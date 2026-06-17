@@ -113,4 +113,27 @@
       new ResizeObserver(function () { fitOne(frame); }).observe(frame);
     });
   }
+
+  /* ── 4 · copy the macOS install command to the clipboard ──── */
+  Array.prototype.forEach.call(document.querySelectorAll('[data-cmd]'), function (el) {
+    el.addEventListener('click', function () {
+      var text = el.getAttribute('data-cmd');
+      var flash = function () {
+        el.classList.add('copied');
+        setTimeout(function () { el.classList.remove('copied'); }, 1700);
+      };
+      var fallback = function () {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        try { document.execCommand('copy'); flash(); } catch (e) { /* no-op */ }
+        document.body.removeChild(ta);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(flash).catch(fallback);
+      } else {
+        fallback();
+      }
+    });
+  });
 })();
