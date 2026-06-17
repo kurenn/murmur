@@ -1293,6 +1293,45 @@ function Settings() {
 }
 
 // ── shell ────────────────────────────────────────────────────────────────
+/** Shown when a dictation transcribed fine but the paste failed — almost always
+ *  Accessibility not effective for the running process (macOS caches it, so a
+ *  grant after launch needs a reopen). Gives the exact remedy. */
+function PasteFailedNotice() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!isTauri) return;
+    let un = () => {};
+    (async () => {
+      const { listen } = await import("@tauri-apps/api/event");
+      un = await listen("inject:needs-permission", () => setShow(true));
+    })().catch(() => {});
+    return () => un();
+  }, []);
+  if (!show) return null;
+  const openSettings = async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("request_accessibility").catch(() => {});
+  };
+  const reopen = async () => {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("restart_app").catch(() => {});
+  };
+  const btn: CSSProperties = {
+    flex: "0 0 auto", border: "0.5px solid var(--line)", background: "var(--surface)", color: "var(--ink)",
+    borderRadius: 8, padding: "5px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-ui)",
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", background: "var(--accent-soft)", borderBottom: "0.5px solid color-mix(in oklch, var(--accent) 35%, transparent)" }}>
+      <div style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.4 }}>
+        <b style={{ color: "var(--ink)" }}>Transcribed, but couldn't paste it.</b> Murmur needs Accessibility to insert at your cursor — enable it, then reopen Murmur so it takes effect.
+      </div>
+      <button onClick={openSettings} style={btn}>Open Settings</button>
+      <button onClick={reopen} style={{ ...btn, background: "var(--ink)", color: "var(--bg)", border: "none" }}>Reopen</button>
+      <button onClick={() => setShow(false)} aria-label="Dismiss" style={{ ...btn, padding: "5px 9px", color: "var(--ink-faint)" }}>✕</button>
+    </div>
+  );
+}
+
 export function Dashboard({ productName = "Murmur", userName = "", initialView = "home" }: { productName?: string; userName?: string; initialView?: "home" | "settings" }) {
   const [active, setActive] = useState<"home" | "history" | "settings">(initialView);
   const nav: { id: "home" | "history" | "settings"; icon: IconName; label: string }[] = [
@@ -1319,6 +1358,8 @@ export function Dashboard({ productName = "Murmur", userName = "", initialView =
       <div style={titleBar} data-tauri-drag-region>
         <TrafficLights />
       </div>
+
+      <PasteFailedNotice />
 
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
         {/* sidebar */}

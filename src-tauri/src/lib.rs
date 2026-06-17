@@ -243,7 +243,7 @@ fn set_config(app: AppHandle, config: config::Config) -> Result<(), String> {
     *st.language.lock().unwrap() = config.language.clone();
     st.auto_detect_language
         .store(config.auto_detect_language, Ordering::Relaxed);
-    apply_trigger_key(&app, &config.trigger_key, &config.hotkey);
+    apply_trigger_key(&app, &config.trigger_key, &config.hotkey, true);
 
     // Reconfigure the overlay window only when its shape actually changed.
     {
@@ -498,18 +498,21 @@ fn on_shortcut(app: &AppHandle, sc: &Shortcut, event_state: ShortcutState) {
 /// Apply the trigger-key choice ("Fn" vs "Hotkey"). On macOS, "Fn" uses the
 /// low-level fn-key listener and leaves the global shortcut unregistered; any
 /// other value (or any non-macOS platform) uses the global-shortcut `hotkey`.
-fn apply_trigger_key(app: &AppHandle, trigger_key: &str, hotkey: &str) {
+fn apply_trigger_key(app: &AppHandle, trigger_key: &str, hotkey: &str, spawn_now: bool) {
     let use_fn = cfg!(target_os = "macos") && trigger_key.eq_ignore_ascii_case("fn");
     let st = app.state::<AppState>();
     st.use_fn_trigger.store(use_fn, Ordering::Relaxed);
 
     if use_fn {
         // Stop the global shortcut from also firing, then make sure the fn
-        // listener is running (spawn-once).
+        // listener is running (spawn-once). `spawn_now` is false before the user
+        // has onboarded — we defer the tap so the macOS Input Monitoring "Quit &
+        // Reopen" prompt doesn't fire before onboarding even guides them; the
+        // onboarding's `enable_fn_listener` spawns it once the grant lands.
         let current = *st.hotkey.lock().unwrap();
         let _ = app.global_shortcut().unregister(current);
         #[cfg(target_os = "macos")]
-        if !st.fn_listener_started.swap(true, Ordering::Relaxed) {
+        if spawn_now && !st.fn_listener_started.swap(true, Ordering::Relaxed) {
             fnkey::spawn_listener(app.clone());
         }
     } else {
@@ -581,7 +584,7 @@ pub fn run() {
                     *st.hotkey.lock().unwrap() = hk;
                 }
             }
-            apply_trigger_key(app.handle(), &cfg.trigger_key, &cfg.hotkey);
+            apply_trigger_key(app.handle(), &cfg.trigger_key, &cfg.hotkey, cfg.onboarded);
 
             // Overlay: click-through (never steals focus) + sized/frosted per shape.
             if let Some(overlay) = app.get_webview_window("overlay") {
