@@ -41,6 +41,15 @@ fn lang_code(name: &str) -> Option<String> {
 
 /// Begin a dictation: idle → listening, start mic capture.
 fn start_dictation(app: &AppHandle) {
+    // macOS: never open the cpal input stream without mic access — building it
+    // re-triggers the system prompt repeatedly while the decision is pending.
+    // Request once via AVFoundation and bail; the next press captures.
+    #[cfg(target_os = "macos")]
+    if !mic::authorized() {
+        mic::request();
+        emit_error(app, "Microphone access needed — allow it, then press your trigger again.");
+        return;
+    }
     let st = app.state::<AppState>();
     {
         let mut cur = st.current.lock().unwrap();
