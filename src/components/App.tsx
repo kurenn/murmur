@@ -38,8 +38,8 @@ export function App() {
     return (
       <Onboarding
         initialName={cfg.userName}
-        onDone={(name) => {
-          const next = { ...cfg, userName: name, onboarded: true };
+        onDone={(name, model) => {
+          const next = { ...cfg, userName: name, model, onboarded: true };
           setCfg(next); // optimistic — switch to the dashboard immediately
           setConfig(next).catch(() => {});
         }}

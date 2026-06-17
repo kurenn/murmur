@@ -32,12 +32,14 @@ describe("Onboarding flow", () => {
     expect(screen.getByText("Microphone")).toBeInTheDocument();
     // model already downloaded → "Ready", Continue enabled
     await screen.findByText("Ready");
+    // pick large-v3 — the selection must survive into the saved config
+    await user.click(screen.getByText("Large v3"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     // Step 3 — welcome → finish
     expect(await screen.findByText(/You.re all set/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start dictating" }));
-    expect(onDone).toHaveBeenCalledWith("Ada");
+    expect(onDone).toHaveBeenCalledWith("Ada", "large-v3");
   });
 
   it("disables Continue on step 1 until a name is entered", async () => {

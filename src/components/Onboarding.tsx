@@ -3,7 +3,7 @@
 //   Step 2  Setup                       → download a transcription model + grant
 //                                          Microphone and Accessibility access.
 //   Step 3  Welcome                      → "You're all set" → into the app.
-// On finish it persists { userName, onboarded: true } via the caller's onDone.
+// On finish it persists { userName, model, onboarded: true } via the caller's onDone.
 
 import { useEffect, useState, type CSSProperties } from "react";
 import { Icons } from "../design-system/icons";
@@ -60,7 +60,7 @@ function DoneBadge({ label }: { label: string }) {
   );
 }
 
-export function Onboarding({ initialName, onDone }: { initialName: string; onDone: (name: string) => void }) {
+export function Onboarding({ initialName, onDone }: { initialName: string; onDone: (name: string, model: string) => void }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(initialName);
 
@@ -150,7 +150,7 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
     setTimeout(async () => setInputMonOk(await invoke<boolean>("input_monitoring_trusted")), 1500);
   };
 
-  const finish = () => onDone(name.trim());
+  const finish = () => onDone(name.trim(), model);
   const firstName = name.trim();
 
   return (
