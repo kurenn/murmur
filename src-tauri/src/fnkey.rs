@@ -94,7 +94,12 @@ pub fn spawn_listener(app: AppHandle) {
         );
 
         if res.is_err() {
-            eprintln!("[fn] event tap not created — grant Input Monitoring permission, then restart");
+            // Input Monitoring wasn't granted — clear the spawn guard so the
+            // listener can be re-spawned the moment it is granted (no restart).
+            app.state::<AppState>()
+                .fn_listener_started
+                .store(false, Ordering::Relaxed);
+            eprintln!("[fn] event tap not created — grant Input Monitoring, then it retries");
         }
     });
 }

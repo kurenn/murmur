@@ -613,7 +613,8 @@ function InputMonitoringNotice() {
     if (!isTauri) return;
     const { invoke } = await import("@tauri-apps/api/core");
     if (!(await invoke<boolean>("input_monitoring_trusted"))) return setState("denied");
-    // Granted — but the tap is created at launch, so a restart may be needed.
+    // Granted — activate the fn listener live (no restart). The next poll reflects it.
+    await invoke("enable_fn_listener").catch(() => {});
     setState((await invoke<boolean>("fn_listener_active")) ? "ok" : "needs-restart");
   };
   useEffect(() => {

@@ -439,7 +439,25 @@ fn fn_listener_active(app: AppHandle) -> bool {
     !st.use_fn_trigger.load(Ordering::Relaxed) || st.fn_listener_active.load(Ordering::Relaxed)
 }
 
-/// Relaunch the app (so a freshly-granted Input Monitoring permission takes effect).
+/// (Re)activate the macOS fn-key listener — call right after Input Monitoring is
+/// granted so the fn key works globally without a restart. No-op when not in Fn
+/// mode, already active, or the permission still isn't granted.
+#[tauri::command]
+fn enable_fn_listener(app: AppHandle) {
+    #[cfg(target_os = "macos")]
+    {
+        let st = app.state::<AppState>();
+        if st.use_fn_trigger.load(Ordering::Relaxed)
+            && !st.fn_listener_active.load(Ordering::Relaxed)
+            && fnkey::access_granted()
+            && !st.fn_listener_started.swap(true, Ordering::Relaxed)
+        {
+            fnkey::spawn_listener(app.clone());
+        }
+    }
+}
+
+/// Relaunch the app (kept as a fallback; the fn listener now re-activates live).
 #[tauri::command]
 fn restart_app(app: AppHandle) {
     app.restart();
@@ -537,6 +555,7 @@ pub fn run() {
             input_monitoring_trusted,
             request_input_monitoring,
             fn_listener_active,
+            enable_fn_listener,
             restart_app
         ])
         .setup(|app| {

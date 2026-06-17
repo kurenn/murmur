@@ -70,6 +70,7 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
   const [progress, setProgress] = useState<number | null>(null);
   const [accessOk, setAccessOk] = useState(false);
   const [inputMonOk, setInputMonOk] = useState(false);
+  const [imRequested, setImRequested] = useState(false);
   const [micDone, setMicDone] = useState(false);
 
   // Reflect real download/permission state on the setup step — on entry AND when
@@ -81,7 +82,11 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
       const { invoke } = await import("@tauri-apps/api/core");
       setDownloaded(await invoke<boolean>("model_downloaded", { model }));
       setAccessOk(await invoke<boolean>("accessibility_trusted"));
-      setInputMonOk(await invoke<boolean>("input_monitoring_trusted"));
+      const im = await invoke<boolean>("input_monitoring_trusted");
+      setInputMonOk(im);
+      // Activate the fn listener the moment Input Monitoring is granted — so fn
+      // works globally (not just when focused) without a restart.
+      if (im) await invoke("enable_fn_listener").catch(() => {});
       setMicDone(await invoke<boolean>("microphone_trusted"));
     };
     refresh().catch(() => {});
@@ -145,9 +150,10 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
       setInputMonOk(true);
       return;
     }
+    setImRequested(true); // immediate feedback: we opened Settings, now waiting
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("request_input_monitoring");
-    setTimeout(async () => setInputMonOk(await invoke<boolean>("input_monitoring_trusted")), 1500);
+    await invoke("request_input_monitoring").catch(() => {});
+    // the poll above flips the row to "Granted" and activates fn once enabled
   };
 
   const finish = () => onDone(name.trim(), model);
@@ -275,9 +281,19 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
                 <span style={{ width: 32, height: 32, flex: "0 0 auto", borderRadius: "50%", background: "var(--accent-soft)", color: "var(--accent)", display: "grid", placeItems: "center" }}>{Icons.keyboard({ size: 16 })}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>fn key trigger</div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Grant Input Monitoring so holding the fn key starts dictation.</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
+                    {inputMonOk
+                      ? "Done — hold the fn (Globe) key in any app to dictate."
+                      : imRequested
+                        ? "Turn Murmur on under Input Monitoring — this updates on its own."
+                        : "Grant Input Monitoring so the fn key works in every app."}
+                  </div>
                 </div>
-                {inputMonOk ? <DoneBadge label="Granted" /> : <button onClick={grantInputMon} style={enableBtn}>Enable</button>}
+                {inputMonOk ? (
+                  <DoneBadge label="Granted" />
+                ) : (
+                  <button onClick={grantInputMon} style={enableBtn}>{imRequested ? "Reopen Settings" : "Enable"}</button>
+                )}
               </div>
 
               <div style={{ display: "flex", alignItems: "center", marginTop: 24 }}>
