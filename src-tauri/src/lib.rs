@@ -45,10 +45,16 @@ fn start_dictation(app: &AppHandle) {
     // re-triggers the system prompt repeatedly while the decision is pending.
     // Request once via AVFoundation and bail; the next press captures.
     #[cfg(target_os = "macos")]
-    if !mic::authorized() {
-        mic::request();
-        emit_error(app, "Microphone access needed — allow it, then press your trigger again.");
-        return;
+    {
+        let authed = mic::authorized();
+        if std::env::var_os("MURMUR_DEBUG").is_some() {
+            eprintln!("[mic] start_dictation: mic::authorized()={authed}");
+        }
+        if !authed {
+            mic::request();
+            emit_error(app, "Microphone access needed — allow it, then press your trigger again.");
+            return;
+        }
     }
     let st = app.state::<AppState>();
     {

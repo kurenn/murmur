@@ -125,8 +125,12 @@ pub fn start_capture(app: AppHandle, stop: Arc<AtomicBool>, sinks: CaptureSinks,
 }
 
 fn run(app: AppHandle, stop: Arc<AtomicBool>, sinks: CaptureSinks, device_name: &str) -> Result<(), String> {
+    let debug = std::env::var_os("MURMUR_DEBUG").is_some();
     let host = cpal::default_host();
     let device = pick_input_device(&host, device_name)?;
+    if debug {
+        eprintln!("[audio] device={:?}", device.name().unwrap_or_default());
+    }
     let supported = device
         .default_input_config()
         .map_err(|e| format!("default_input_config: {e}"))?;
@@ -135,6 +139,12 @@ fn run(app: AppHandle, stop: Arc<AtomicBool>, sinks: CaptureSinks, device_name: 
     let channels = supported.channels() as usize;
     let config: cpal::StreamConfig = supported.into();
     sinks.rate.store(config.sample_rate.0, Ordering::Relaxed);
+    if debug {
+        eprintln!(
+            "[audio] opening stream: format={sample_format:?} channels={channels} rate={}",
+            config.sample_rate.0
+        );
+    }
 
     let bars: Bars = Arc::new(Mutex::new([0.0; BARS]));
     let bars_cb = bars.clone();
@@ -178,10 +188,24 @@ fn run(app: AppHandle, stop: Arc<AtomicBool>, sinks: CaptureSinks, device_name: 
     .map_err(|e| format!("build_input_stream: {e}"))?;
 
     stream.play().map_err(|e| format!("play: {e}"))?;
+    if debug {
+        eprintln!("[audio] stream playing — capturing");
+    }
 
     // Emit loop — keeps the stream alive and pushes levels to the overlay.
+    let mut ticks = 0u32;
+    let mut peak = 0.0f32;
     while !stop.load(Ordering::Relaxed) {
         let snapshot = *bars.lock().unwrap();
+        if debug {
+            peak = peak.max(snapshot.iter().cloned().fold(0.0, f32::max));
+            ticks += 1;
+            if ticks % 30 == 0 {
+                let total = sinks.samples.lock().map(|b| b.len()).unwrap_or(0);
+                eprintln!("[audio] ~{}s: peak_level={peak:.3} samples={total}", ticks / 30);
+                peak = 0.0;
+            }
+        }
         let _ = app.emit_to("overlay", "audio:levels", snapshot.to_vec());
         std::thread::sleep(Duration::from_millis(33));
     }

@@ -70,8 +70,11 @@ pub fn inject(text: &str, type_instead: bool, restore_clipboard: bool) -> Result
         eprintln!("[inject] accessibility_trusted={trusted} type_instead={type_instead} len={}", text.len());
     }
     if !trusted {
-        // Surface the system prompt; caller decides how to message the user.
-        prompt_accessibility();
+        // Do NOT pop the system Accessibility dialog here — inject runs on every
+        // dictation, so prompting here nags the user with that modal every single
+        // time (and it can't help: the grant only applies to a process launched
+        // after it exists). The caller emits `inject:needs-permission`, which the
+        // dashboard turns into a one-time "grant + restart" notice instead.
         return Err("accessibility permission not granted".into());
     }
 
