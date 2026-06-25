@@ -38,10 +38,13 @@ export function App() {
     return (
       <Onboarding
         initialName={cfg.userName}
-        onDone={(name, model) => {
+        onDone={async (name, model) => {
           const next = { ...cfg, userName: name, model, onboarded: true };
-          setCfg(next); // optimistic — switch to the dashboard immediately
-          setConfig(next).catch(() => {});
+          // Persist (flush) before returning — onboarding may relaunch right after
+          // to activate Accessibility/Input Monitoring, and the fresh process must
+          // come up already onboarded.
+          await setConfig(next);
+          setCfg(next); // switch to the dashboard (used when no relaunch happens)
         }}
       />
     );

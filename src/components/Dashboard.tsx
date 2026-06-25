@@ -241,15 +241,19 @@ export function computeStats(entries: HistoryEntry[]): DictStats {
 
 function SetupBanner({
   needsAccess,
+  accessRequested,
   needsModel,
   dlProgress,
   onGrant,
+  onReopen,
   onDownload,
 }: {
   needsAccess: boolean;
+  accessRequested: boolean;
   needsModel: string | null;
   dlProgress: number | null;
   onGrant: () => void;
+  onReopen: () => void;
   onDownload: () => void;
 }) {
   if (!needsAccess && !needsModel) return null;
@@ -284,7 +288,15 @@ function SetupBanner({
             btn("Download", onDownload)
           ),
         )}
-      {needsAccess && row("shield", "Enable text insertion", "Grant Accessibility so Murmur can paste at your cursor.", btn("Grant access", onGrant))}
+      {needsAccess &&
+        (accessRequested
+          ? row(
+              "shield",
+              "Enable text insertion",
+              "Enabled Murmur under Accessibility? Restart to activate it — the grant only applies on a fresh launch.",
+              btn("Restart now", onReopen),
+            )
+          : row("shield", "Enable text insertion", "Grant Accessibility so Murmur can paste at your cursor.", btn("Grant access", onGrant)))}
     </div>
   );
 }
@@ -292,6 +304,7 @@ function SetupBanner({
 function Home({ userName }: { userName: string }) {
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [needsAccess, setNeedsAccess] = useState(false);
+  const [accessRequested, setAccessRequested] = useState(false);
   const [needsModel, setNeedsModel] = useState<string | null>(null);
   const [dlProgress, setDlProgress] = useState<number | null>(null);
   const [query, setQuery] = useState("");
@@ -339,12 +352,15 @@ function Home({ userName }: { userName: string }) {
 
   const grant = async () => {
     if (!isTauri) return;
+    setAccessRequested(true); // opened Settings; it activates on the next launch
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("request_accessibility");
-    // Poll for a bit in case the window keeps focus while they toggle Settings.
-    for (let i = 1; i <= 6; i++) {
-      setTimeout(async () => setNeedsAccess(!(await invoke<boolean>("accessibility_trusted"))), i * 1500);
-    }
+    await invoke("request_accessibility").catch(() => {});
+  };
+
+  const reopen = async () => {
+    if (!isTauri) return;
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("restart_app").catch(() => {});
   };
 
   const download = async () => {
@@ -395,7 +411,7 @@ function Home({ userName }: { userName: string }) {
         </div>
       </div>
 
-      <SetupBanner needsAccess={needsAccess} needsModel={needsModel} dlProgress={dlProgress} onGrant={grant} onDownload={download} />
+      <SetupBanner needsAccess={needsAccess} accessRequested={accessRequested} needsModel={needsModel} dlProgress={dlProgress} onGrant={grant} onReopen={reopen} onDownload={download} />
 
       <div style={{ display: "flex", gap: 12 }}>
         <Stat value={wordsTodayStr} unit="words" label="Dictated today" />
@@ -605,17 +621,17 @@ export function codeToKey(code: string): string | null {
 /** Render an accelerator like "Alt+Space" as kbd glyphs, and capture a new chord
  * on click. Persists via onRebind → config (Rust re-registers the global shortcut). */
 /** Prompt to grant Input Monitoring (required for the fn-key trigger on macOS).
- *  Three states: needs permission → needs restart (granted after launch) → ok.
- *  Re-checks on window focus so it self-clears when you return from Settings. */
+ *  macOS only exposes the grant to a process started *after* it exists, so the
+ *  running app can't see it live — once the user opens Settings we offer a
+ *  Restart to activate. If `input_monitoring_trusted` is true we already launched
+ *  with it (the fn tap is global), so the notice hides. */
 function InputMonitoringNotice() {
-  const [state, setState] = useState<"ok" | "denied" | "needs-restart">("ok");
+  const [trusted, setTrusted] = useState(true); // assume ok until a check says otherwise
+  const [requested, setRequested] = useState(false);
   const check = async () => {
     if (!isTauri) return;
     const { invoke } = await import("@tauri-apps/api/core");
-    if (!(await invoke<boolean>("input_monitoring_trusted"))) return setState("denied");
-    // Granted — activate the fn listener live (no restart). The next poll reflects it.
-    await invoke("enable_fn_listener").catch(() => {});
-    setState((await invoke<boolean>("fn_listener_active")) ? "ok" : "needs-restart");
+    setTrusted(await invoke<boolean>("input_monitoring_trusted"));
   };
   useEffect(() => {
     check().catch(() => {});
@@ -628,14 +644,16 @@ function InputMonitoringNotice() {
       clearInterval(id);
     };
   }, []);
-  if (state === "ok") return null;
+  if (trusted) return null;
 
-  const denied = state === "denied";
+  // Show the restart path once the user has opened Settings (we can't confirm the
+  // grant from this process, so we can't wait for it).
+  const denied = !requested;
   const onClick = async () => {
     const { invoke } = await import("@tauri-apps/api/core");
     if (denied) {
       await invoke("request_input_monitoring");
-      setTimeout(() => check().catch(() => {}), 1500);
+      setRequested(true);
     } else {
       await invoke("restart_app");
     }
@@ -655,12 +673,12 @@ function InputMonitoringNotice() {
       <div style={{ flex: 1, fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.45 }}>
         {denied ? (
           <>
-            Grant <b style={{ color: "var(--ink)" }}>Input Monitoring</b> so Murmur can detect the fn key. After
-            enabling Murmur in the list, come back here.
+            Grant <b style={{ color: "var(--ink)" }}>Input Monitoring</b> so Murmur can detect the fn key in every app.
           </>
         ) : (
           <>
-            <b style={{ color: "var(--ink)" }}>Input Monitoring granted.</b> Restart Murmur to enable the fn key.
+            Enabled Murmur under <b style={{ color: "var(--ink)" }}>Input Monitoring</b>? Restart Murmur to activate the
+            fn key — the grant only applies on a fresh launch.
           </>
         )}
       </div>

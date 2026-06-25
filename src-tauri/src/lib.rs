@@ -423,39 +423,32 @@ fn input_monitoring_trusted() -> bool {
     }
 }
 
-/// Open System Settings → Privacy & Security → Input Monitoring (macOS).
+/// Open System Settings → Privacy & Security → Input Monitoring (macOS), and make
+/// sure the event tap exists first. Creating the tap is what registers Murmur in
+/// the Input Monitoring list — during onboarding the launch-time tap is deferred,
+/// so without this the user would open Settings to an empty row and have nothing
+/// to toggle. The tap is harmless (focus-only) until a post-grant launch.
 #[tauri::command]
-fn request_input_monitoring() {
+fn request_input_monitoring(app: AppHandle) {
     #[cfg(target_os = "macos")]
-    fnkey::open_settings();
+    {
+        let st = app.state::<AppState>();
+        if !st.fn_listener_started.swap(true, Ordering::Relaxed) {
+            fnkey::spawn_listener(app.clone());
+        }
+        fnkey::open_settings();
+    }
 }
 
-/// Whether the fn-key event tap is actually running. Stays false until Input
-/// Monitoring is granted; `enable_fn_listener` then spawns the tap live (no
-/// restart). On non-macOS / non-Fn modes this is irrelevant; returns true to
-/// avoid nagging.
+/// Whether the fn-key event tap is running. The tap is created at launch (so the
+/// app registers in the Input Monitoring list); it only sees events *globally*
+/// when the process launched with the grant already in place — granting later
+/// needs a restart, which the UI drives. On non-macOS / non-Fn modes this is
+/// irrelevant; returns true to avoid nagging.
 #[tauri::command]
 fn fn_listener_active(app: AppHandle) -> bool {
     let st = app.state::<AppState>();
     !st.use_fn_trigger.load(Ordering::Relaxed) || st.fn_listener_active.load(Ordering::Relaxed)
-}
-
-/// (Re)activate the macOS fn-key listener — call right after Input Monitoring is
-/// granted so the fn key works globally without a restart. No-op when not in Fn
-/// mode, already active, or the permission still isn't granted.
-#[tauri::command]
-fn enable_fn_listener(app: AppHandle) {
-    #[cfg(target_os = "macos")]
-    {
-        let st = app.state::<AppState>();
-        if st.use_fn_trigger.load(Ordering::Relaxed)
-            && !st.fn_listener_active.load(Ordering::Relaxed)
-            && fnkey::access_granted()
-            && !st.fn_listener_started.swap(true, Ordering::Relaxed)
-        {
-            fnkey::spawn_listener(app.clone());
-        }
-    }
 }
 
 /// Relaunch the app (kept as a fallback; the fn listener now re-activates live).
@@ -507,16 +500,20 @@ fn apply_trigger_key(app: &AppHandle, trigger_key: &str, hotkey: &str, spawn_now
     if use_fn {
         // Stop the global shortcut from also firing, then make sure the fn
         // listener is running (spawn-once). `spawn_now` is false before the user
-        // has onboarded — we defer the tap so the macOS Input Monitoring "Quit &
-        // Reopen" prompt doesn't fire before onboarding even guides them; the
-        // onboarding's `enable_fn_listener` spawns it once the grant lands.
+        // has onboarded, so the very first launch doesn't create the tap until
+        // onboarding guides the permission flow.
         let current = *st.hotkey.lock().unwrap();
         let _ = app.global_shortcut().unregister(current);
-        // Only create the tap once Input Monitoring is actually granted — a tap
-        // made without it is global-blind (focus-only). enable_fn_listener spawns
-        // it the moment the grant lands.
+        // Create the tap at launch regardless of the grant. Creating a keyboard
+        // tap is *also* what registers Murmur in the Input Monitoring list — so
+        // the user has something to toggle. Without the permission the tap is
+        // harmless (focus-only); it only sees events globally once the process is
+        // launched with the grant already in place (macOS exposes the grant only
+        // to a process started after it exists — hence the restart-to-activate
+        // flow in the UI). Gating creation on the grant (as we briefly did) meant
+        // a fresh install never appeared in the list at all.
         #[cfg(target_os = "macos")]
-        if spawn_now && fnkey::access_granted() && !st.fn_listener_started.swap(true, Ordering::Relaxed) {
+        if spawn_now && !st.fn_listener_started.swap(true, Ordering::Relaxed) {
             fnkey::spawn_listener(app.clone());
         }
     } else {
@@ -562,7 +559,6 @@ pub fn run() {
             input_monitoring_trusted,
             request_input_monitoring,
             fn_listener_active,
-            enable_fn_listener,
             restart_app
         ])
         .setup(|app| {

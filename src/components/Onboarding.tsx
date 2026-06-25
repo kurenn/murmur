@@ -60,7 +60,7 @@ function DoneBadge({ label }: { label: string }) {
   );
 }
 
-export function Onboarding({ initialName, onDone }: { initialName: string; onDone: (name: string, model: string) => void }) {
+export function Onboarding({ initialName, onDone }: { initialName: string; onDone: (name: string, model: string) => void | Promise<void> }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(initialName);
 
@@ -71,22 +71,22 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
   const [accessOk, setAccessOk] = useState(false);
   const [inputMonOk, setInputMonOk] = useState(false);
   const [imRequested, setImRequested] = useState(false);
+  const [accessRequested, setAccessRequested] = useState(false);
   const [micDone, setMicDone] = useState(false);
 
-  // Reflect real download/permission state on the setup step — on entry AND when
-  // the window regains focus (so granting a permission in System Settings flips
-  // the row to "Granted" without re-entering the step).
+  // Reflect real download/permission state on the setup step. Note: Accessibility
+  // and Input Monitoring grants are NOT visible to this running process — macOS
+  // only exposes them to a process started *after* the grant exists. So these two
+  // rows can't flip to "Granted" live the way mic does; we relaunch on finish to
+  // activate them (see `finish`). The check still runs so a permission already
+  // granted before launch (e.g. re-onboarding) shows correctly.
   useEffect(() => {
     if (!isTauri || step !== 1) return;
     const refresh = async () => {
       const { invoke } = await import("@tauri-apps/api/core");
       setDownloaded(await invoke<boolean>("model_downloaded", { model }));
       setAccessOk(await invoke<boolean>("accessibility_trusted"));
-      const im = await invoke<boolean>("input_monitoring_trusted");
-      setInputMonOk(im);
-      // Activate the fn listener the moment Input Monitoring is granted — so fn
-      // works globally (not just when focused) without a restart.
-      if (im) await invoke("enable_fn_listener").catch(() => {});
+      setInputMonOk(await invoke<boolean>("input_monitoring_trusted"));
       setMicDone(await invoke<boolean>("microphone_trusted"));
     };
     refresh().catch(() => {});
@@ -140,9 +140,9 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
       setAccessOk(true);
       return;
     }
+    setAccessRequested(true); // feedback: we opened Settings (activates on finish)
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("request_accessibility");
-    setTimeout(async () => setAccessOk(await invoke<boolean>("accessibility_trusted")), 1200);
+    await invoke("request_accessibility").catch(() => {});
   };
 
   const grantInputMon = async () => {
@@ -150,13 +150,24 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
       setInputMonOk(true);
       return;
     }
-    setImRequested(true); // immediate feedback: we opened Settings, now waiting
+    setImRequested(true); // feedback: we opened Settings (activates on finish)
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("request_input_monitoring").catch(() => {});
-    // the poll above flips the row to "Granted" and activates fn once enabled
   };
 
-  const finish = () => onDone(name.trim(), model);
+  // Persist the onboarding result, then relaunch IF the user just granted
+  // Accessibility / Input Monitoring — those only take effect in a process
+  // started after the grant, so the fresh launch is what activates them (and
+  // the dashboard then reflects them correctly). Mic activates live, no restart.
+  const finish = async () => {
+    await onDone(name.trim(), model);
+    if (!isTauri) return;
+    const needsRestart = (accessRequested && !accessOk) || (imRequested && !inputMonOk);
+    if (needsRestart) {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("restart_app").catch(() => {});
+    }
+  };
   const firstName = name.trim();
 
   return (
@@ -271,9 +282,19 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
                 <span style={{ width: 32, height: 32, flex: "0 0 auto", borderRadius: "50%", background: "var(--accent-soft)", color: "var(--accent)", display: "grid", placeItems: "center" }}>{Icons.shield({ size: 16 })}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>Text insertion</div>
-                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Grant Accessibility so Murmur can type at your cursor.</div>
+                  <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
+                    {accessOk
+                      ? "Done — Murmur can type at your cursor."
+                      : accessRequested
+                        ? "Enable Murmur under Accessibility — it activates when you finish setup."
+                        : "Grant Accessibility so Murmur can type at your cursor."}
+                  </div>
                 </div>
-                {accessOk ? <DoneBadge label="Granted" /> : <button onClick={grantAccess} style={enableBtn}>Enable</button>}
+                {accessOk ? (
+                  <DoneBadge label="Granted" />
+                ) : (
+                  <button onClick={grantAccess} style={enableBtn}>{accessRequested ? "Reopen Settings" : "Enable"}</button>
+                )}
               </div>
 
               {/* input monitoring (fn-key trigger) */}
@@ -285,7 +306,7 @@ export function Onboarding({ initialName, onDone }: { initialName: string; onDon
                     {inputMonOk
                       ? "Done — hold the fn (Globe) key in any app to dictate."
                       : imRequested
-                        ? "Turn Murmur on under Input Monitoring — this updates on its own."
+                        ? "Enable Murmur under Input Monitoring — it activates when you finish setup."
                         : "Grant Input Monitoring so the fn key works in every app."}
                   </div>
                 </div>
