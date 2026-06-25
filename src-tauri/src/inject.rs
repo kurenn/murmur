@@ -64,7 +64,12 @@ pub fn inject(text: &str, type_instead: bool, restore_clipboard: bool) -> Result
     if text.is_empty() {
         return Ok(());
     }
-    if !accessibility_trusted() {
+    let debug = std::env::var_os("MURMUR_DEBUG").is_some();
+    let trusted = accessibility_trusted();
+    if debug {
+        eprintln!("[inject] accessibility_trusted={trusted} type_instead={type_instead} len={}", text.len());
+    }
+    if !trusted {
         // Surface the system prompt; caller decides how to message the user.
         prompt_accessibility();
         return Err("accessibility permission not granted".into());
@@ -77,9 +82,15 @@ pub fn inject(text: &str, type_instead: bool, restore_clipboard: bool) -> Result
     }
 
     let prev = set_clipboard(text)?;
+    if debug {
+        eprintln!("[inject] clipboard set; firing paste…");
+    }
     // Let the focused app observe the new clipboard before we paste.
     std::thread::sleep(Duration::from_millis(40));
     paste_combo()?;
+    if debug {
+        eprintln!("[inject] paste fired (⌘V synthesized) — if no text appeared, the keystroke was dropped");
+    }
 
     if restore_clipboard {
         if let Some(prev) = prev {

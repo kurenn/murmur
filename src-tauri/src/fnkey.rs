@@ -22,25 +22,33 @@ use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 
+// Real Input Monitoring authorization, via IOKit. Creating an event tap is NOT a
+// reliable probe: on macOS it succeeds *without* the permission and only silently
+// restricts events to the focused app — which made our old check a false positive
+// ("fn only works when focused"). IOHIDCheckAccess reports the true state.
+#[link(name = "IOKit", kind = "framework")]
+extern "C" {
+    fn IOHIDCheckAccess(request: u32) -> u32;
+    fn IOHIDRequestAccess(request: u32) -> bool;
+}
+// IOHIDRequestType: PostEvent = 0, ListenEvent = 1.
+const IOHID_REQUEST_LISTEN_EVENT: u32 = 1;
+// IOHIDAccessType: Granted = 0, Denied = 1, Unknown = 2.
+const IOHID_ACCESS_GRANTED: u32 = 0;
+
 /// Virtual keycode of the fn / Globe key (kVK_Function).
 const KEYCODE_FN: i64 = 63;
 
-/// Whether we can install a keyboard event tap — i.e. Input Monitoring is
-/// granted. Creating a listen-only keyboard tap returns NULL without the
-/// permission, so the attempt itself is the probe. The tap is dropped at once.
+/// Whether Input Monitoring is actually granted (not just "a tap can be created").
 pub fn access_granted() -> bool {
-    CGEventTap::new(
-        CGEventTapLocation::HID,
-        CGEventTapPlacement::HeadInsertEventTap,
-        CGEventTapOptions::ListenOnly,
-        vec![CGEventType::FlagsChanged],
-        |_, _, _| CallbackResult::Keep,
-    )
-    .is_ok()
+    unsafe { IOHIDCheckAccess(IOHID_REQUEST_LISTEN_EVENT) == IOHID_ACCESS_GRANTED }
 }
 
-/// Open System Settings → Privacy & Security → Input Monitoring.
+/// Show the system Input Monitoring prompt and open the settings pane.
 pub fn open_settings() {
+    unsafe {
+        let _ = IOHIDRequestAccess(IOHID_REQUEST_LISTEN_EVENT);
+    }
     let _ = std::process::Command::new("open")
         .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
         .spawn();

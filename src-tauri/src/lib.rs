@@ -430,9 +430,10 @@ fn request_input_monitoring() {
     fnkey::open_settings();
 }
 
-/// Whether the fn-key event tap is actually running. False after granting Input
-/// Monitoring at runtime — the tap is created at launch, so a restart is needed.
-/// On non-macOS / non-Fn modes this is irrelevant; returns true to avoid nagging.
+/// Whether the fn-key event tap is actually running. Stays false until Input
+/// Monitoring is granted; `enable_fn_listener` then spawns the tap live (no
+/// restart). On non-macOS / non-Fn modes this is irrelevant; returns true to
+/// avoid nagging.
 #[tauri::command]
 fn fn_listener_active(app: AppHandle) -> bool {
     let st = app.state::<AppState>();
@@ -511,8 +512,11 @@ fn apply_trigger_key(app: &AppHandle, trigger_key: &str, hotkey: &str, spawn_now
         // onboarding's `enable_fn_listener` spawns it once the grant lands.
         let current = *st.hotkey.lock().unwrap();
         let _ = app.global_shortcut().unregister(current);
+        // Only create the tap once Input Monitoring is actually granted — a tap
+        // made without it is global-blind (focus-only). enable_fn_listener spawns
+        // it the moment the grant lands.
         #[cfg(target_os = "macos")]
-        if spawn_now && !st.fn_listener_started.swap(true, Ordering::Relaxed) {
+        if spawn_now && fnkey::access_granted() && !st.fn_listener_started.swap(true, Ordering::Relaxed) {
             fnkey::spawn_listener(app.clone());
         }
     } else {
@@ -585,6 +589,23 @@ pub fn run() {
                 }
             }
             apply_trigger_key(app.handle(), &cfg.trigger_key, &cfg.hotkey, cfg.onboarded);
+
+            // Diagnostic heartbeat (MURMUR_DEBUG=1): logs the live permission state
+            // every 2s, so we can see whether a grant takes effect without a relaunch.
+            #[cfg(target_os = "macos")]
+            if std::env::var_os("MURMUR_DEBUG").is_some() {
+                let h = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(Duration::from_secs(2));
+                    let active = h.state::<AppState>().fn_listener_active.load(Ordering::Relaxed);
+                    eprintln!(
+                        "[debug] accessibility={} input_monitoring={} fn_listener_active={}",
+                        inject::accessibility_trusted(),
+                        fnkey::access_granted(),
+                        active,
+                    );
+                });
+            }
 
             // Overlay: click-through (never steals focus) + sized/frosted per shape.
             if let Some(overlay) = app.get_webview_window("overlay") {
